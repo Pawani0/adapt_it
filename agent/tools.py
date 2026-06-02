@@ -66,6 +66,44 @@ def _configured_topics():
     return selected or INDIABIX_TOPICS
 
 
+def _admin_headers():
+    return {
+        "X-API-Key": config.ADMIN_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+
+def _load_remote_sent_ids():
+    try:
+        response = requests.get(
+            f"{config.QUIZ_BASE_URL}/api/sent-questions",
+            headers=_admin_headers(),
+            timeout=30
+        )
+        if response.status_code == 200:
+            return set(response.json().get("ids", []))
+        print(f"[-] Remote sent-log load failed: HTTP {response.status_code} {response.text[:200]}")
+    except Exception as e:
+        print(f"[-] Remote sent-log load failed: {e}")
+    return None
+
+
+def _record_remote_sent_questions(questions):
+    try:
+        response = requests.post(
+            f"{config.QUIZ_BASE_URL}/api/sent-questions",
+            json={"questions": questions},
+            headers=_admin_headers(),
+            timeout=30
+        )
+        if response.status_code == 200:
+            return True
+        print(f"[-] Remote sent-log update failed: HTTP {response.status_code} {response.text[:200]}")
+    except Exception as e:
+        print(f"[-] Remote sent-log update failed: {e}")
+    return False
+
+
 # ─── Tool Implementations ────────────────────────────────────────────────────
 
 def tool_list_available_topics(_args: dict) -> dict:
@@ -118,12 +156,17 @@ def tool_scrape_topic(args: dict) -> dict:
 def tool_select_questions(args: dict) -> dict:
     """
     Pick the configured number of questions from the provided pool, filtering out already-sent ones.
-    Updates sent_log.json automatically.
+    Updates the deployed server sent log, with sent_log.json as a local fallback.
     """
     questions = args.get("questions", [])
     count = args.get("count", getattr(config, "QUIZ_QUESTION_COUNT", 5))
 
-    sent_ids = tracker.load_sent_log("sent_log.json")
+    sent_log_source = "server"
+    sent_ids = _load_remote_sent_ids()
+    if sent_ids is None:
+        sent_log_source = "sent_log.json"
+        sent_ids = tracker.load_sent_log("sent_log.json")
+
     fresh = tracker.filter_new_questions(questions, sent_ids)
 
     if len(fresh) < count:
@@ -131,12 +174,18 @@ def tool_select_questions(args: dict) -> dict:
         fresh = questions  # Recycle if needed
 
     picked = tracker.pick_daily_questions(fresh, count)
-    tracker.update_sent_log(picked, sent_ids, "sent_log.json")
+    if sent_log_source == "server":
+        if not _record_remote_sent_questions(picked):
+            tracker.update_sent_log(picked, sent_ids, "sent_log.json")
+            sent_log_source = "sent_log.json"
+    else:
+        tracker.update_sent_log(picked, sent_ids, "sent_log.json")
 
     return {
         "selected_count": len(picked),
         "questions": picked,
-        "topics_covered": list({q.get("topic", "Unknown") for q in picked})
+        "topics_covered": list({q.get("topic", "Unknown") for q in picked}),
+        "sent_log_source": sent_log_source
     }
 
 
@@ -167,16 +216,11 @@ def tool_setup_daily_quiz(args: dict) -> dict:
         "tokens": [{"token": t["token"], "name": t["name"], "email": t["email"]} for t in tokens],
         "deadline_epoch": deadline_epoch
     }
-    headers = {
-        "X-API-Key": config.ADMIN_API_KEY,
-        "Content-Type": "application/json"
-    }
-
     try:
         response = requests.post(
             f"{config.QUIZ_BASE_URL}/api/setup-quiz",
             json=payload,
-            headers=headers,
+            headers=_admin_headers(),
             timeout=30
         )
         success = response.status_code == 200

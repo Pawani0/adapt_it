@@ -49,6 +49,14 @@ def init_db():
                 value TEXT NOT NULL
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS sent_questions (
+                id TEXT PRIMARY KEY,
+                question_text TEXT,
+                topic TEXT,
+                first_sent_at TEXT NOT NULL
+            )
+        ''')
         conn.commit()
 
 init_db()
@@ -87,6 +95,52 @@ def health_check():
     """Simple health endpoint for deployment platforms and uptime checks."""
     return jsonify({"status": "ok", "service": "daily-aptitude-quiz"})
 
+def require_admin_api_key():
+    api_key = request.headers.get('X-API-Key')
+    expected_key = getattr(config, 'ADMIN_API_KEY', 'testkey')
+    if not api_key or api_key != expected_key:
+        return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+@app.route('/api/sent-questions', methods=['GET'])
+def get_sent_questions():
+    """Return sent question IDs for the Render cron dispatcher."""
+    auth_error = require_admin_api_key()
+    if auth_error:
+        return auth_error
+
+    with get_db() as conn:
+        rows = conn.execute("SELECT id FROM sent_questions").fetchall()
+
+    return jsonify({"ids": [row["id"] for row in rows]}), 200
+
+@app.route('/api/sent-questions', methods=['POST'])
+def record_sent_questions():
+    """Persist selected question IDs so cron runs avoid repeats."""
+    auth_error = require_admin_api_key()
+    if auth_error:
+        return auth_error
+
+    data = request.get_json() or {}
+    questions = data.get("questions", [])
+    now = datetime.now().isoformat()
+
+    with get_db() as conn:
+        for q in questions:
+            q_id = q.get("id")
+            if not q_id:
+                continue
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO sent_questions (id, question_text, topic, first_sent_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (q_id, q.get("question", ""), q.get("topic", ""), now)
+            )
+        conn.commit()
+
+    return jsonify({"success": True, "recorded": len(questions)}), 200
+
 @app.route('/api/setup-quiz', methods=['POST'])
 def setup_quiz():
     """
@@ -102,11 +156,9 @@ def setup_quiz():
       "deadline_epoch": 1780272000
     }
     """
-    # Verify X-API-Key
-    api_key = request.headers.get('X-API-Key')
-    expected_key = getattr(config, 'ADMIN_API_KEY', 'testkey')
-    if not api_key or api_key != expected_key:
-        return jsonify({"error": "Unauthorized"}), 401
+    auth_error = require_admin_api_key()
+    if auth_error:
+        return auth_error
         
     data = request.get_json()
     if not data or 'questions' not in data or 'tokens' not in data:

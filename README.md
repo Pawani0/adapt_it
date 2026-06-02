@@ -13,7 +13,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
   - Identifies browser window blur events (switching tabs or opening screenshot tools) and logs total violations.
 - **Secure Server-side Validation:** Server logs the exact quiz start time and strictly invalidates/rejects attempts beyond the configured time limit.
 - **Result Masking:** Hides correct options and score details until the daily deadline passes (e.g. 9:00 PM IST).
-- **Automated Orchestrator:** Runs daily at 9:00 AM IST via GitHub Actions cron, waking up the server, pushing today's questions, and mailing candidate links.
+- **Automated Orchestrator:** Runs daily via Render Cron Job, waking up the server, pushing today's questions, and mailing candidate links.
 
 ---
 
@@ -34,9 +34,8 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 │   ├── quiz.html            Polished timed quiz page (incorporates anti-cheat & timer)
 │   ├── result.html          Thank you screen / Graded report page (post-deadline)
 │   └── error.html           Failed tokens, timeouts, and late submission warnings
-└── .github/
-    └── workflows/
-        └── daily.yml        GitHub Actions cron runner
+├── render.yaml              Render web service + cron job blueprint
+└── DEPLOYMENT.md            Render deployment checklist
 ```
 
 ---
@@ -118,32 +117,13 @@ The app is deployment-ready with:
    {"service":"daily-aptitude-quiz","status":"ok"}
    ```
 
-### Railway Alternative
-1. Push this folder to GitHub and create a Railway service from the repo.
-2. Set the start command:
-   ```bash
-   gunicorn app:app --bind 0.0.0.0:$PORT
-   ```
-3. Add the same environment variables listed above.
-4. Add a volume if you want `quiz.db` and candidate memory to survive service restarts.
+### Render Cron Job
+The included `render.yaml` also creates `daily-aptitude-quiz-dispatcher`, a Render Cron Job that runs:
 
----
+```bash
+python main.py
+```
 
-## Configuring GitHub Actions (Scheduler)
+It runs daily at `30 2 * * *` UTC, which is 8:00 AM IST.
 
-1. Go to your GitHub project repository, click **Settings**, expand **Secrets and variables**, and click **Actions**.
-2. Add the following **Repository secrets**:
-   - `SENDER_EMAIL`: Your Gmail address.
-   - `SENDER_PASSWORD`: Your 16-character Gmail App Password.
-   - `GOOGLE_SHEET_ID`: The shared Google Sheet ID.
-   - `ADMIN_API_KEY`: The API key matching the Flask app environment variables.
-   - `QUIZ_BASE_URL`: The deployed Flask app URL (e.g. `https://your-quiz-app.up.railway.app`).
-   - `NVIDIA_API_KEY`: Your NVIDIA NIM API key.
-3. Add these optional **Repository variables** if you want GitHub Actions to mirror deployment config:
-   - `QUIZ_QUESTION_COUNT`
-   - `QUIZ_TIME_LIMIT_MINUTES`
-   - `QUIZ_SUBMISSION_BUFFER_SECONDS`
-   - `QUIZ_RESULT_DEADLINE_HOURS`
-   - `QUIZ_TOPICS`
-4. Do not push `.env` or `credentials.json`. The Flask app handles Google Sheets writes through deployment secrets.
-5. Once secrets are set, the workflow will automatically execute daily at 8:00 AM IST (2:30 AM UTC). You can also run it manually from **Actions** -> **Daily Aptitude Quiz Dispatcher**.
+Render Cron Jobs do not share the web service disk, so used question IDs are persisted through the Flask API endpoints documented in `DEPLOYMENT.md`.
