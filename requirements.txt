@@ -1,0 +1,7 @@
+beautifulsoup4==4.12.3
+flask==3.0.3
+gspread==6.1.4
+gunicorn==22.0.0
+google-auth==2.35.0
+openai==1.52.2
+requests==2.32.3
