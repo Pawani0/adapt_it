@@ -104,6 +104,10 @@ def _record_remote_sent_questions(questions):
     return False
 
 
+def _use_remote_sent_log():
+    return os.environ.get("SENT_LOG_BACKEND", "local").lower() == "server"
+
+
 # ─── Tool Implementations ────────────────────────────────────────────────────
 
 def tool_list_available_topics(_args: dict) -> dict:
@@ -156,13 +160,17 @@ def tool_scrape_topic(args: dict) -> dict:
 def tool_select_questions(args: dict) -> dict:
     """
     Pick the configured number of questions from the provided pool, filtering out already-sent ones.
-    Updates the deployed server sent log, with sent_log.json as a local fallback.
+    Updates sent_log.json by default, or the deployed server sent log when SENT_LOG_BACKEND=server.
     """
     questions = args.get("questions", [])
     count = args.get("count", getattr(config, "QUIZ_QUESTION_COUNT", 5))
 
-    sent_log_source = "server"
-    sent_ids = _load_remote_sent_ids()
+    sent_log_source = "sent_log.json"
+    sent_ids = None
+    if _use_remote_sent_log():
+        sent_log_source = "server"
+        sent_ids = _load_remote_sent_ids()
+
     if sent_ids is None:
         sent_log_source = "sent_log.json"
         sent_ids = tracker.load_sent_log("sent_log.json")

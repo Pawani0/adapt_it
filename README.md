@@ -13,7 +13,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
   - Identifies browser window blur events (switching tabs or opening screenshot tools) and logs total violations.
 - **Secure Server-side Validation:** Server logs the exact quiz start time and strictly invalidates/rejects attempts beyond the configured time limit.
 - **Result Masking:** Hides correct options and score details until the daily deadline passes (e.g. 9:00 PM IST).
-- **Automated Orchestrator:** Runs daily via Render Cron Job, waking up the server, pushing today's questions, and mailing candidate links.
+- **Automated Orchestrator:** Runs daily via GitHub Actions, wakes the Render web service, pushes today's questions, and mails candidate links.
 
 ---
 
@@ -34,8 +34,9 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 │   ├── quiz.html            Polished timed quiz page (incorporates anti-cheat & timer)
 │   ├── result.html          Thank you screen / Graded report page (post-deadline)
 │   └── error.html           Failed tokens, timeouts, and late submission warnings
-├── render.yaml              Render web service + cron job blueprint
-└── DEPLOYMENT.md            Render deployment checklist
+├── render.yaml              Optional Render web service config
+├── .github/workflows/daily.yml GitHub Actions daily scheduler
+└── DEPLOYMENT.md            Free deployment checklist
 ```
 
 ---
@@ -89,13 +90,17 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 The app is deployment-ready with:
 - `requirements.txt` for dependencies.
 - `Procfile` using `gunicorn app:app --bind 0.0.0.0:$PORT`.
-- `render.yaml` for Render Blueprint deployment.
+- `render.yaml` for optional Render web service configuration.
+- `.github/workflows/daily.yml` for the free daily scheduler.
 - `/` health endpoint for platform health checks.
 
-### Recommended: Render
+### Recommended Free Setup
 1. Push this folder to a GitHub repository.
-2. In Render, create a new **Blueprint** from the repository. Render will read `render.yaml`.
-3. Add these environment variables in the Render dashboard:
+2. In Render, create a **New Web Service** from the repository.
+3. Select the **Free** instance type.
+4. Use `pip install -r requirements.txt` as the build command.
+5. Use `gunicorn app:app --bind 0.0.0.0:$PORT` as the start command.
+6. Add these environment variables in the Render dashboard:
    - `ADMIN_API_KEY`
    - `SENDER_EMAIL`
    - `SENDER_PASSWORD`
@@ -109,21 +114,23 @@ The app is deployment-ready with:
    - `QUIZ_RESULT_DEADLINE_HOURS`
    - `QUIZ_DEADLINE_HOUR`
    - `QUIZ_DEADLINE_MINUTE`
-4. If using the included persistent disk, keep:
-   - `QUIZ_DB_FILE=/var/data/quiz.db`
-   - `CANDIDATE_MEMORY_FILE=/var/data/candidate_memory.json`
-5. Deploy, then open the service URL. A healthy app returns:
+7. Deploy, then open the service URL. A healthy app returns:
    ```json
    {"service":"daily-aptitude-quiz","status":"ok"}
    ```
 
-### Render Cron Job
-The included `render.yaml` also creates `daily-aptitude-quiz-dispatcher`, a Render Cron Job that runs:
+### GitHub Actions Scheduler
+Configure these repository secrets under **Settings -> Secrets and variables -> Actions**:
 
-```bash
-python main.py
+```text
+ADMIN_API_KEY
+SENDER_EMAIL
+SENDER_PASSWORD
+GOOGLE_SHEET_ID
+NVIDIA_API_KEY
+QUIZ_BASE_URL
 ```
 
-It runs daily at `30 2 * * *` UTC, which is 8:00 AM IST.
+`ADMIN_API_KEY` and `QUIZ_BASE_URL` must match the Render service.
 
-Render Cron Jobs do not share the web service disk, so used question IDs are persisted through the Flask API endpoints documented in `DEPLOYMENT.md`.
+The workflow runs `python main.py` daily at `30 2 * * *` UTC, which is 8:00 AM IST, and commits `sent_log.json` back to the repo.

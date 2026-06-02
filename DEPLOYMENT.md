@@ -1,88 +1,111 @@
-# Deploy Adaptit on Render
+# Free Deploy: Flask on Render, Scheduler on GitHub Actions
 
-This project uses Render for both services:
+This setup avoids paid Render features:
 
-- A Flask web service that hosts the quiz.
-- A Render Cron Job that runs `python main.py` every day and dispatches the quiz.
+- Render Free Web Service hosts the Flask quiz app.
+- GitHub Actions runs `python main.py` every day.
+- `sent_log.json` is committed back to the repo so question history persists.
 
-No GitHub Actions setup is required.
+Do not use Render Blueprint, Render Cron Jobs, or Render persistent disks for the free setup.
 
-## 1. Create the Render Blueprint
+## 1. Deploy Flask on Render
 
-1. Push this repository to GitHub.
-2. In Render, choose **New -> Blueprint**.
-3. Select this repository.
-4. Render reads `render.yaml` and creates:
-   - `daily-aptitude-quiz`
-   - `daily-aptitude-quiz-dispatcher`
-
-The cron schedule is:
+1. Go to Render.
+2. Click **New + -> Web Service**.
+3. Connect your GitHub repository.
+4. Select the repo.
+5. Use:
 
 ```text
-30 2 * * *
+Build Command: pip install -r requirements.txt
+Start Command: gunicorn app:app --bind 0.0.0.0:$PORT
+Instance Type: Free
 ```
 
-Render cron schedules use UTC, so this runs at **8:00 AM IST**.
-
-Note: Render Cron Jobs have a minimum monthly charge, and the persistent disk for SQLite requires a paid Render service.
-
-## 2. Add Render environment variables
-
-For both the web service and cron job, set the same values for:
+6. Add these Render environment variables:
 
 ```text
-ADMIN_API_KEY
-SENDER_EMAIL
-SENDER_PASSWORD
-GOOGLE_SHEET_ID
-NVIDIA_API_KEY
-QUIZ_BASE_URL
+ADMIN_API_KEY=<make a strong secret>
+SENDER_EMAIL=<your Gmail address>
+SENDER_PASSWORD=<your Gmail app password>
+GOOGLE_SHEET_ID=<your Google Sheet ID>
+GOOGLE_CREDENTIALS_JSON=<full service-account JSON>
+NVIDIA_API_KEY=<your NVIDIA NIM API key>
+QUIZ_BASE_URL=<your Render web service URL>
+QUIZ_QUESTION_COUNT=15
+QUIZ_TIME_LIMIT_MINUTES=15
+QUIZ_SUBMISSION_BUFFER_SECONDS=45
+QUIZ_RESULT_DEADLINE_HOURS=12
+QUIZ_DEADLINE_HOUR=21
+QUIZ_DEADLINE_MINUTE=0
 ```
 
-Set `QUIZ_BASE_URL` to your Render web service URL, for example:
+At first, `QUIZ_BASE_URL` can be blank or temporary. After Render gives you the final URL, set it to that URL and redeploy.
 
-```text
-https://adaptit.onrender.com
-```
+## 2. Verify Render
 
-For the web service only, also set:
-
-```text
-GOOGLE_CREDENTIALS_JSON
-```
-
-Paste the full Google service-account JSON as one environment variable value.
-
-## 3. Persistent data
-
-The web service uses a Render persistent disk for:
-
-```text
-QUIZ_DB_FILE=/var/data/quiz.db
-CANDIDATE_MEMORY_FILE=/var/data/candidate_memory.json
-```
-
-Render Cron Jobs cannot access that disk, so the cron dispatcher records used question IDs through the Flask API:
-
-```text
-GET  /api/sent-questions
-POST /api/sent-questions
-```
-
-Both endpoints require `X-API-Key: ADMIN_API_KEY`.
-
-## 4. Test
-
-1. Deploy the Blueprint.
-2. Open the web service URL. It should return:
+Open your Render URL. It should return:
 
 ```json
 {"service":"daily-aptitude-quiz","status":"ok"}
 ```
 
-3. Open the cron job in Render and click **Trigger Run**.
-4. Check the cron logs for successful scraping, setup, and email sending.
-5. Check the web service logs for `/api/setup-quiz` and `/api/sent-questions` returning `200`.
+## 3. Configure GitHub Actions
+
+In your GitHub repo, go to:
+
+```text
+Settings -> Secrets and variables -> Actions
+```
+
+Add these **Repository secrets**:
+
+```text
+ADMIN_API_KEY=<same value as Render>
+SENDER_EMAIL=<same value as Render>
+SENDER_PASSWORD=<same value as Render>
+GOOGLE_SHEET_ID=<same value as Render>
+NVIDIA_API_KEY=<same value as Render>
+QUIZ_BASE_URL=<your Render web service URL>
+```
+
+Add optional **Repository variables**:
+
+```text
+QUIZ_QUESTION_COUNT=15
+QUIZ_TIME_LIMIT_MINUTES=15
+QUIZ_SUBMISSION_BUFFER_SECONDS=45
+QUIZ_RESULT_DEADLINE_HOURS=12
+QUIZ_TOPICS=
+```
+
+## 4. Run the Scheduler
+
+The workflow is:
+
+```text
+.github/workflows/daily.yml
+```
+
+It runs daily at:
+
+```text
+30 2 * * *
+```
+
+That is **8:00 AM IST**.
+
+To test manually:
+
+1. Open GitHub **Actions**.
+2. Select **Daily Aptitude Quiz Dispatcher**.
+3. Click **Run workflow**.
+4. Check logs for scraping, setup, and emails.
+5. Check Render logs for `/api/setup-quiz` returning `200`.
+
+## Free-Tier Caveat
+
+Render free web services can sleep and their local filesystem is not reliable long-term. This means `quiz.db` can reset after redeploys/restarts. For a demo/MVP this is usually fine. For reliable production, move quiz state to a hosted database such as Neon or Supabase.
 
 ## Security
 
