@@ -22,9 +22,9 @@ services:
         value: 0
       - key: ADMIN_API_KEY
         sync: false
-      - key: SENDER_EMAIL
+      - key: RESEND_API_KEY
         sync: false
-      - key: SENDER_PASSWORD
+      - key: RESEND_FROM_EMAIL
         sync: false
       - key: GOOGLE_SHEET_ID
         sync: false

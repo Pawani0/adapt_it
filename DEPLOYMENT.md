@@ -32,11 +32,13 @@ Start Command: gunicorn app:app --bind 0.0.0.0:$PORT
 
 ```text
 ADMIN_API_KEY=<strong shared secret>
-SENDER_EMAIL=<your Gmail>
-SENDER_PASSWORD=<your Gmail app password>
+RESEND_API_KEY=<your Resend API key>
+RESEND_FROM_EMAIL=<verified sender like Quiz Bot <onboarding@yourdomain.com>>
 GOOGLE_SHEET_ID=<your sheet id>
 GOOGLE_CREDENTIALS_JSON=<full service-account JSON>
 NVIDIA_API_KEY=<your NVIDIA NIM key>
+NVIDIA_TIMEOUT_SECONDS=45
+NVIDIA_MAX_RETRIES=1
 QUIZ_BASE_URL=<your Render app URL>
 DATABASE_URL=<your Neon pooled connection string>
 QUIZ_QUESTION_COUNT=15

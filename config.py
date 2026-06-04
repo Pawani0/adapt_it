@@ -28,9 +28,9 @@ QUIZ_BASE_URL = os.environ.get("QUIZ_BASE_URL", "http://localhost:5000")
 # Secret Admin API Key for setups (Actions -> Flask)
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "admin-default-secret-key-12345")
 
-# Gmail SMTP Settings
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "your-email@gmail.com")
-SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD", "your-gmail-app-password")
+# Email Delivery Settings
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "")
 
 # Google Sheets Config
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "your-google-sheet-id-here")
@@ -42,6 +42,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = "minimaxai/minimax-m2.7"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_TIMEOUT_SECONDS = float(os.environ.get("NVIDIA_TIMEOUT_SECONDS", 45))
+NVIDIA_MAX_RETRIES = int(os.environ.get("NVIDIA_MAX_RETRIES", 1))
 
 # Daily Quiz Submission Deadline (IST)
 QUIZ_DEADLINE_HOUR = int(os.environ.get("QUIZ_DEADLINE_HOUR", 21))      # 9 PM IST

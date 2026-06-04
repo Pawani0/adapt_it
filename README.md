@@ -1,6 +1,6 @@
 # Daily Aptitude Quiz Agent 📝🤖
 
-An automated daily aptitude quiz platform that scrapes questions from IndiaBix, delivers personalized, timed, single-use test links to candidates via Gmail SMTP, scores attempts, logs focus loss statistics, and logs the final graded results in real-time to Google Sheets.
+An automated daily aptitude quiz platform that scrapes questions from IndiaBix, delivers personalized, timed, single-use test links to candidates via Resend, scores attempts, logs focus loss statistics, and logs the final graded results in real-time to Google Sheets.
 
 ---
 
@@ -23,7 +23,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 ├── main.py                  Local entry point for running the orchestrator manually
 ├── scraper.py               IndiaBix web scraper (4 or 5 options, md5 hashing)
 ├── tracker.py               Tracks already-sent question IDs in sent_log.json
-├── emailer.py               Personalized HTML mail builder & Gmail SMTP dispatcher
+├── emailer.py               Personalized HTML mail builder & Resend API dispatcher
 ├── app.py                   Flask server (manages timer, database states, scoring API)
 ├── sheets.py                Google Sheets logger (falls back to mock logging if offline)
 ├── config.py                Shared config values (deadline times, friends list)
@@ -53,11 +53,11 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 7. Create a new Google Sheet, name it (e.g. `Daily Quiz Results`), and share edit access with that service account email address.
 8. Copy the Sheet ID from the URL (the string between `/d/` and `/edit` in the address bar).
 
-### Phase B: Gmail App Password
-1. Go to your Google Account Settings -> Security.
-2. Enable **2-Step Verification** if not already enabled.
-3. Search for **App Passwords** in the settings search bar.
-4. Create a new App Password (select App: *Mail*, Device: *Other*), and copy the generated 16-character code.
+### Phase B: Resend Setup
+1. Create a [Resend](https://resend.com/) account.
+2. Create an API key in the Resend dashboard.
+3. Verify a sending domain in Resend.
+4. Choose a sender address on that verified domain, for example `Quiz Bot <onboarding@yourdomain.com>`.
 
 ### Phase C: Local Setup & Testing
 1. Clone/extract the project files into your workspace.
@@ -69,7 +69,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
    ```
 3. Open `config.py` and:
    - Configure the candidate list under `FRIENDS_LIST`.
-   - Update `SENDER_EMAIL` and `SENDER_PASSWORD` with your App Password for local testing (or leave default to run in simulation mode).
+   - Update `RESEND_API_KEY` and `RESEND_FROM_EMAIL` for local testing (or leave them empty to run in simulation mode).
    - Enter your `GOOGLE_SHEET_ID`.
 4. Start the Flask server locally:
    ```bash
@@ -102,8 +102,8 @@ The app is deployment-ready with:
 5. Use `gunicorn app:app --bind 0.0.0.0:$PORT` as the start command.
 6. Add these environment variables in the Render dashboard:
    - `ADMIN_API_KEY`
-   - `SENDER_EMAIL`
-   - `SENDER_PASSWORD`
+   - `RESEND_API_KEY`
+   - `RESEND_FROM_EMAIL`
    - `GOOGLE_SHEET_ID`
    - `GOOGLE_CREDENTIALS_JSON` (paste the service-account JSON as one value)
    - `NVIDIA_API_KEY`
@@ -124,8 +124,8 @@ Configure these repository secrets under **Settings -> Secrets and variables -> 
 
 ```text
 ADMIN_API_KEY
-SENDER_EMAIL
-SENDER_PASSWORD
+RESEND_API_KEY
+RESEND_FROM_EMAIL
 GOOGLE_SHEET_ID
 NVIDIA_API_KEY
 QUIZ_BASE_URL

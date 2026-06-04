@@ -1,30 +1,57 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import requests
 import config
+
+RESEND_API_URL = "https://api.resend.com/emails"
+
+
+def _resend_ready():
+    return bool(config.RESEND_API_KEY and config.RESEND_FROM_EMAIL)
+
+
+def _send_via_resend(recipient_email, subject, html_content):
+    if not _resend_ready():
+        print(f"[-] Resend not configured. Simulating email to {recipient_email}...")
+        return True
+
+    payload = {
+        "from": config.RESEND_FROM_EMAIL,
+        "to": [recipient_email],
+        "subject": subject,
+        "html": html_content,
+    }
+    headers = {
+        "Authorization": f"Bearer {config.RESEND_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        response = requests.post(
+            RESEND_API_URL,
+            json=payload,
+            headers=headers,
+            timeout=30,
+        )
+        if 200 <= response.status_code < 300:
+            return True
+
+        print(
+            f"[-] Resend email failed for {recipient_email}: "
+            f"HTTP {response.status_code} {response.text[:300]}"
+        )
+        return False
+    except Exception as e:
+        print(f"[-] Resend email failed for {recipient_email}: {e}")
+        return False
+
 
 def send_quiz_email(recipient_name, recipient_email, quiz_link):
     """
-    Sends a styled HTML email containing a personalized quiz link to a friend.
+    Sends a styled HTML email containing a personalized quiz link.
     """
-    sender_email = config.SENDER_EMAIL
-    sender_password = config.SENDER_PASSWORD
     question_count = getattr(config, "QUIZ_QUESTION_COUNT", 5)
     time_limit_minutes = getattr(config, "QUIZ_TIME_LIMIT_MINUTES", 15)
-    
-    # Check if credentials are placeholders
-    if sender_email == "your-email@gmail.com" or sender_password == "your-gmail-app-password":
-        print(f"[-] SMTP Credentials not configured. Simulating email to {recipient_name} ({recipient_email})...")
-        print(f"    Link: {quiz_link}")
-        return True
+    subject = f"Your Daily Aptitude Quiz is Ready, {recipient_name}!"
 
-    # Setup the MIME
-    message = MIMEMultipart('alternative')
-    message['From'] = f"Daily Quiz Agent <{sender_email}>"
-    message['To'] = recipient_email
-    message['Subject'] = f"📝 Your Daily Aptitude Quiz is Ready, {recipient_name}!"
-
-    # Create HTML content
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -57,7 +84,6 @@ def send_quiz_email(recipient_name, recipient_email, quiz_link):
                 margin: 0;
                 font-size: 24px;
                 font-weight: 800;
-                letter-spacing: -0.5px;
             }}
             .content {{
                 padding: 40px 30px;
@@ -86,16 +112,11 @@ def send_quiz_email(recipient_name, recipient_email, quiz_link):
                 color: #374151;
                 text-transform: uppercase;
                 margin-bottom: 12px;
-                letter-spacing: 0.5px;
             }}
             .rule-item {{
                 font-size: 14px;
                 color: #4b5563;
                 margin-bottom: 10px;
-                display: flex;
-            }}
-            .rule-item:last-child {{
-                margin-bottom: 0;
             }}
             .cta-container {{
                 text-align: center;
@@ -110,7 +131,6 @@ def send_quiz_email(recipient_name, recipient_email, quiz_link):
                 font-size: 16px;
                 text-decoration: none;
                 border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
             }}
             .footer {{
                 background-color: #f9fafb;
@@ -127,69 +147,41 @@ def send_quiz_email(recipient_name, recipient_email, quiz_link):
             <div class="header">
                 <h1>DAILY APTITUDE CHALLENGE</h1>
             </div>
-            
             <div class="content">
                 <div class="greeting">Hi {recipient_name},</div>
                 <div class="instructions">
-                    Your daily aptitude assessment is ready. Click the button below to start your challenge. The link is personalized for you and will expire upon use.
+                    Your daily aptitude assessment is ready. Click the button below to start your challenge.
                 </div>
-                
                 <div class="rules-box">
-                    <div class="rules-title">⚠️ Assessment Rules</div>
+                    <div class="rules-title">Assessment Rules</div>
                     <div class="rule-item">Questions: {question_count} multiple-choice questions.</div>
-                    <div class="rule-item">⏱️ Time Limit: {time_limit_minutes} minutes (timer auto-submits on expiration).</div>
-                    <div class="rule-item">🚫 No Resubmissions: The link is single-use only.</div>
-                    <div class="rule-item">🛡️ Anti-Cheat: Text copying is blocked. App logs all window changes/tab switching.</div>
+                    <div class="rule-item">Time Limit: {time_limit_minutes} minutes.</div>
+                    <div class="rule-item">No resubmissions: the link is single-use only.</div>
+                    <div class="rule-item">Anti-cheat logging is enabled for focus loss and tab switching.</div>
                 </div>
-                
                 <div class="cta-container">
                     <a href="{quiz_link}" class="btn-cta">Start Assessment</a>
                 </div>
             </div>
-            
             <div class="footer">
-                This is an automated delivery. Please submit within the daily deadline.<br>
-                &copy; 2026 Daily Quiz Agent.
+                This is an automated delivery. Please submit within the daily deadline.
             </div>
         </div>
     </body>
     </html>
     """
-    
-    # Attach body
-    message.attach(MIMEText(html_content, 'html'))
-    
-    try:
-        # Create SMTP session for reference
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls() # Enable security
-        server.login(sender_email, sender_password) # Login
-        text = message.as_string()
-        server.sendmail(sender_email, recipient_email, text)
-        server.quit()
+
+    success = _send_via_resend(recipient_email, subject, html_content)
+    if success:
         print(f"[+] Email successfully sent to {recipient_name} ({recipient_email}).")
-        return True
-    except Exception as e:
-        print(f"[-] Failed to send email to {recipient_name}: {e}")
-        return False
+    return success
+
 
 def send_feedback_email(recipient_name, recipient_email, feedback_body):
     """
     Sends a personalized feedback email to a candidate after a quiz.
     """
-    sender_email = config.SENDER_EMAIL
-    sender_password = config.SENDER_PASSWORD
-    
-    if sender_email == "your-email@gmail.com" or sender_password == "your-gmail-app-password":
-        print(f"[-] SMTP Credentials not configured. Simulating feedback email to {recipient_name} ({recipient_email})...")
-        print(f"    Body: {feedback_body}")
-        return True
-
-    message = MIMEMultipart('alternative')
-    message['Subject'] = f"Feedback on your Quiz, {recipient_name}"
-    message['From'] = f"Daily Quiz <{sender_email}>"
-    message['To'] = recipient_email
-
+    subject = f"Feedback on your Quiz, {recipient_name}"
     html_content = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px;">
@@ -205,20 +197,11 @@ def send_feedback_email(recipient_name, recipient_email, feedback_body):
     </html>
     """
 
-    message.attach(MIMEText(html_content, 'html'))
+    success = _send_via_resend(recipient_email, subject, html_content)
+    if success:
+        print(f"[+] Feedback email successfully sent to {recipient_name} ({recipient_email}).")
+    return success
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(message)
-        server.quit()
-        print(f"[+] Feedback Email successfully sent to {recipient_name} ({recipient_email})")
-        return True
-    except Exception as e:
-        print(f"[-] Failed to send feedback email to {recipient_email}. Error: {e}")
-        return False
 
 if __name__ == "__main__":
-    # Test emailer (will simulate if credentials aren't set)
     send_quiz_email("Test Friend", "test.friend@example.com", "http://localhost:5000/quiz/test-token-123")
