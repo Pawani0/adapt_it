@@ -9,6 +9,7 @@ import json
 import os
 from datetime import datetime
 from typing import Optional
+import db
 
 MEMORY_FILE = os.environ.get("CANDIDATE_MEMORY_FILE", "candidate_memory.json")
 
@@ -17,6 +18,15 @@ MEMORY_FILE = os.environ.get("CANDIDATE_MEMORY_FILE", "candidate_memory.json")
 
 def _load() -> dict:
     """Load the full memory file. Returns empty dict if it doesn't exist."""
+    if db.using_postgres():
+        db.initialize_schema()
+        with db.connect() as conn:
+            rows = conn.execute("SELECT email, payload_json FROM candidate_memory").fetchall()
+        return {
+            row["email"]: json.loads(row["payload_json"])
+            for row in rows
+        }
+
     if not os.path.exists(MEMORY_FILE):
         return {}
     try:
@@ -29,6 +39,17 @@ def _load() -> dict:
 
 def _save(data: dict) -> None:
     """Persist memory dict to disk."""
+    if db.using_postgres():
+        db.initialize_schema()
+        with db.connect() as conn:
+            conn.execute("DELETE FROM candidate_memory")
+            for email, payload in data.items():
+                conn.execute(
+                    "INSERT INTO candidate_memory (email, payload_json) VALUES (?, ?)",
+                    (email, json.dumps(payload, ensure_ascii=False))
+                )
+        return
+
     memory_dir = os.path.dirname(MEMORY_FILE)
     if memory_dir:
         os.makedirs(memory_dir, exist_ok=True)

@@ -24,7 +24,10 @@ import scraper
 import emailer
 import tracker
 import config
+import db
 from agent import memory
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 
 # ─── Available IndiaBix Topics ───────────────────────────────────────────────
@@ -73,6 +76,84 @@ def _admin_headers():
     }
 
 
+_SENT_LOG_BACKEND = ContextVar("sent_log_backend", default=None)
+_QUIZ_SETUP_BACKEND = ContextVar("quiz_setup_backend", default=None)
+
+
+@contextmanager
+def runtime_backends(sent_log_backend=None, quiz_setup_backend=None):
+    sent_token = _SENT_LOG_BACKEND.set(sent_log_backend)
+    setup_token = _QUIZ_SETUP_BACKEND.set(quiz_setup_backend)
+    try:
+        yield
+    finally:
+        _SENT_LOG_BACKEND.reset(sent_token)
+        _QUIZ_SETUP_BACKEND.reset(setup_token)
+
+
+def _sent_log_backend():
+    backend = _SENT_LOG_BACKEND.get()
+    if backend:
+        return backend
+    return os.environ.get("SENT_LOG_BACKEND", "local").lower()
+
+
+def _quiz_setup_backend():
+    backend = _QUIZ_SETUP_BACKEND.get()
+    if backend:
+        return backend
+    return os.environ.get("QUIZ_SETUP_BACKEND", "remote").lower()
+
+
+def _load_database_sent_ids():
+    db.initialize_schema()
+    with db.connect() as conn:
+        rows = conn.execute("SELECT id FROM sent_questions").fetchall()
+    return set(row["id"] for row in rows)
+
+
+def _record_database_sent_questions(questions):
+    db.initialize_schema()
+    now = time.strftime("%Y-%m-%dT%H:%M:%S")
+    with db.connect() as conn:
+        for q in questions:
+            q_id = q.get("id")
+            if not q_id:
+                continue
+            conn.execute(
+                """
+                INSERT INTO sent_questions (id, question_text, topic, first_sent_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (q_id, q.get("question", ""), q.get("topic", ""), now)
+            )
+    return True
+
+
+def _setup_quiz_direct(questions, tokens, deadline_epoch):
+    db.initialize_schema()
+    with db.connect() as conn:
+        conn.execute("DELETE FROM questions")
+        conn.execute("DELETE FROM tokens")
+        conn.execute("DELETE FROM settings")
+        for q in questions:
+            conn.execute(
+                "INSERT INTO questions (id, text, options_json, correct_answer) VALUES (?, ?, ?, ?)",
+                (q["id"], q["question"], json.dumps(q["options"]), q["answer"])
+            )
+        for token in tokens:
+            conn.execute(
+                "INSERT INTO tokens (token, name, email) VALUES (?, ?, ?)",
+                (token["token"], token["name"], token["email"])
+            )
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?)",
+            ("deadline_epoch", str(deadline_epoch))
+        )
+    return True
+
+
 def _load_remote_sent_ids():
     try:
         response = requests.get(
@@ -105,7 +186,7 @@ def _record_remote_sent_questions(questions):
 
 
 def _use_remote_sent_log():
-    return os.environ.get("SENT_LOG_BACKEND", "local").lower() == "server"
+    return _sent_log_backend() == "server"
 
 
 # ─── Tool Implementations ────────────────────────────────────────────────────
@@ -167,7 +248,11 @@ def tool_select_questions(args: dict) -> dict:
 
     sent_log_source = "sent_log.json"
     sent_ids = None
-    if _use_remote_sent_log():
+    backend = _sent_log_backend()
+    if backend == "database":
+        sent_log_source = "database"
+        sent_ids = _load_database_sent_ids()
+    elif backend == "server":
         sent_log_source = "server"
         sent_ids = _load_remote_sent_ids()
 
@@ -182,7 +267,9 @@ def tool_select_questions(args: dict) -> dict:
         fresh = questions  # Recycle if needed
 
     picked = tracker.pick_daily_questions(fresh, count)
-    if sent_log_source == "server":
+    if sent_log_source == "database":
+        _record_database_sent_questions(picked)
+    elif sent_log_source == "server":
         if not _record_remote_sent_questions(picked):
             tracker.update_sent_log(picked, sent_ids, "sent_log.json")
             sent_log_source = "sent_log.json"
@@ -224,6 +311,18 @@ def tool_setup_daily_quiz(args: dict) -> dict:
         "tokens": [{"token": t["token"], "name": t["name"], "email": t["email"]} for t in tokens],
         "deadline_epoch": deadline_epoch
     }
+    if _quiz_setup_backend() == "direct":
+        success = _setup_quiz_direct(
+            questions,
+            [{"token": t["token"], "name": t["name"], "email": t["email"]} for t in tokens],
+            deadline_epoch
+        )
+        return {
+            "success": success,
+            "candidate_links": tokens,
+            "deadline_epoch": deadline_epoch
+        }
+
     try:
         response = requests.post(
             f"{config.QUIZ_BASE_URL}/api/setup-quiz",
@@ -270,13 +369,11 @@ def tool_update_candidate_memory(args: dict) -> dict:
 def tool_get_todays_submissions(_args: dict) -> dict:
     """Fetch all submitted quiz results from today's SQLite database."""
     try:
-        conn = sqlite3.connect("quiz.db")
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        rows = cursor.execute(
+        db.initialize_schema()
+        with db.connect() as conn:
+            rows = conn.execute(
             "SELECT * FROM tokens WHERE submitted_at IS NOT NULL"
         ).fetchall()
-        conn.close()
 
         submissions = []
         for row in rows:

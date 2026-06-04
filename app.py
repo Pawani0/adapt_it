@@ -1,63 +1,19 @@
 import os
 import json
-import sqlite3
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
+import db
 
 app = Flask(__name__)
 
 # Ensure templates directory is recognized
 app.template_folder = os.path.abspath('templates')
 
-DB_FILE = 'quiz.db'
-DB_FILE = os.environ.get('QUIZ_DB_FILE', DB_FILE)
-
 def get_db():
-    db_dir = os.path.dirname(DB_FILE)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return db.connect()
 
 def init_db():
-    with get_db() as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS questions (
-                id TEXT PRIMARY KEY,
-                text TEXT NOT NULL,
-                options_json TEXT NOT NULL,
-                correct_answer TEXT NOT NULL
-            )
-        ''')
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS tokens (
-                token TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                email TEXT NOT NULL,
-                opened_at TEXT,
-                submitted_at TEXT,
-                time_taken INTEGER,
-                score INTEGER,
-                answers TEXT,
-                tab_switches INTEGER DEFAULT 0
-            )
-        ''')
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )
-        ''')
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS sent_questions (
-                id TEXT PRIMARY KEY,
-                question_text TEXT,
-                topic TEXT,
-                first_sent_at TEXT NOT NULL
-            )
-        ''')
-        conn.commit()
+    db.initialize_schema()
 
 init_db()
 
@@ -194,6 +150,25 @@ def setup_quiz():
         conn.commit()
         
     return jsonify({"success": True, "message": "Quiz setup complete"}), 200
+
+
+@app.route('/api/run-daily-quiz', methods=['POST'])
+def run_daily_quiz():
+    """Trigger the full daily quiz generation pipeline inside the Flask app."""
+    auth_error = require_admin_api_key()
+    if auth_error:
+        return auth_error
+
+    from agent.orchestrator_agent import run_daily_quiz_job
+
+    try:
+        result = run_daily_quiz_job(
+            sent_log_backend="database",
+            quiz_setup_backend="direct"
+        )
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/quiz/<token>', methods=['GET'])
 def start_quiz_welcome(token):

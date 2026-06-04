@@ -20,7 +20,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 ## File Structure
 
 ```text
-├── main.py                  Agent orchestrator (wakes server, pushes state, mails friends)
+├── main.py                  Local entry point for running the orchestrator manually
 ├── scraper.py               IndiaBix web scraper (4 or 5 options, md5 hashing)
 ├── tracker.py               Tracks already-sent question IDs in sent_log.json
 ├── emailer.py               Personalized HTML mail builder & Gmail SMTP dispatcher
@@ -76,7 +76,7 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
    python app.py
    ```
    The server will start at `http://localhost:5000`.
-5. Run the orchestrator script to simulate the daily cron job:
+5. Run the orchestrator script to simulate the daily quiz generation locally:
    ```bash
    python main.py
    ```
@@ -91,7 +91,7 @@ The app is deployment-ready with:
 - `requirements.txt` for dependencies.
 - `Procfile` using `gunicorn app:app --bind 0.0.0.0:$PORT`.
 - `render.yaml` for optional Render web service configuration.
-- `.github/workflows/daily.yml` for the free daily scheduler.
+- `.github/workflows/daily.yml` for the trigger-only daily scheduler.
 - `/` health endpoint for platform health checks.
 
 ### Recommended Free Setup
@@ -133,4 +133,4 @@ QUIZ_BASE_URL
 
 `ADMIN_API_KEY` and `QUIZ_BASE_URL` must match the Render service.
 
-The workflow runs `python main.py` daily at `30 2 * * *` UTC, which is 8:00 AM IST, and commits `sent_log.json` back to the repo.
+The workflow sends a protected `POST` request to `/api/run-daily-quiz` daily at `30 2 * * *` UTC, which is 8:00 AM IST.

@@ -35,6 +35,9 @@ SENDER_PASSWORD = os.environ.get("SENDER_PASSWORD", "your-gmail-app-password")
 # Google Sheets Config
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "your-google-sheet-id-here")
 
+# Database Config
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
 # NVIDIA NIM Config
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = "minimaxai/minimax-m2.7"
