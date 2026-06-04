@@ -92,6 +92,12 @@ with:
 X-API-Key: ADMIN_API_KEY
 ```
 
+The endpoint starts the job in the background and returns immediately. GitHub Actions then polls:
+
+```text
+GET /api/run-daily-quiz/status
+```
+
 The Flask app then:
 
 1. Runs the quiz-generation agent.

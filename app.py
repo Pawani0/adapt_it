@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 import db
@@ -8,6 +9,15 @@ app = Flask(__name__)
 
 # Ensure templates directory is recognized
 app.template_folder = os.path.abspath('templates')
+
+DAILY_JOB_STATUS = {
+    "running": False,
+    "last_started_at": None,
+    "last_finished_at": None,
+    "last_state": "idle",
+    "last_result": None,
+    "last_error": None,
+}
 
 def get_db():
     return db.connect()
@@ -57,6 +67,29 @@ def require_admin_api_key():
     if not api_key or api_key != expected_key:
         return jsonify({"error": "Unauthorized"}), 401
     return None
+
+
+def _run_daily_quiz_background():
+    from agent.orchestrator_agent import run_daily_quiz_job
+
+    DAILY_JOB_STATUS["running"] = True
+    DAILY_JOB_STATUS["last_state"] = "running"
+    DAILY_JOB_STATUS["last_started_at"] = datetime.now().isoformat()
+    DAILY_JOB_STATUS["last_error"] = None
+
+    try:
+        result = run_daily_quiz_job(
+            sent_log_backend="database",
+            quiz_setup_backend="direct"
+        )
+        DAILY_JOB_STATUS["last_result"] = result
+        DAILY_JOB_STATUS["last_state"] = "succeeded"
+    except Exception as e:
+        DAILY_JOB_STATUS["last_error"] = str(e)
+        DAILY_JOB_STATUS["last_state"] = "failed"
+    finally:
+        DAILY_JOB_STATUS["running"] = False
+        DAILY_JOB_STATUS["last_finished_at"] = datetime.now().isoformat()
 
 @app.route('/api/sent-questions', methods=['GET'])
 def get_sent_questions():
@@ -159,16 +192,27 @@ def run_daily_quiz():
     if auth_error:
         return auth_error
 
-    from agent.orchestrator_agent import run_daily_quiz_job
+    if DAILY_JOB_STATUS["running"]:
+        return jsonify({"success": False, "error": "Daily quiz job is already running"}), 409
 
-    try:
-        result = run_daily_quiz_job(
-            sent_log_backend="database",
-            quiz_setup_backend="direct"
-        )
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    worker = threading.Thread(target=_run_daily_quiz_background, daemon=True)
+    worker.start()
+    return jsonify({"success": True, "status": "started"}), 202
+
+
+@app.route('/api/run-daily-quiz/status', methods=['GET'])
+def run_daily_quiz_status():
+    """Read the last known daily job state."""
+    auth_error = require_admin_api_key()
+    if auth_error:
+        return auth_error
+
+    status_code = 200
+    if DAILY_JOB_STATUS["running"]:
+        status_code = 202
+    elif DAILY_JOB_STATUS["last_state"] == "failed":
+        status_code = 500
+    return jsonify(DAILY_JOB_STATUS), status_code
 
 @app.route('/quiz/<token>', methods=['GET'])
 def start_quiz_welcome(token):
