@@ -85,6 +85,9 @@ def _run_daily_quiz_background():
         DAILY_JOB_STATUS["last_result"] = result
         DAILY_JOB_STATUS["last_state"] = "succeeded"
     except Exception as e:
+        import traceback
+        print(f"[-] Daily quiz job failed: {e}")
+        traceback.print_exc()
         DAILY_JOB_STATUS["last_error"] = str(e)
         DAILY_JOB_STATUS["last_state"] = "failed"
     finally:
@@ -393,6 +396,29 @@ def submit_quiz(token):
         print(f"[+] Result row appended to Google Sheet for {user['name']}.")
     except Exception as e:
         print(f"[-] Error writing submission to Google Sheets: {e}")
+
+    # Update candidate memory for adaptive quiz selection
+    try:
+        from agent.memory import update_candidate
+        question_ids = [q['id'] for q in db_qs]
+        with get_db() as conn:
+            placeholders = ",".join("?" * len(question_ids))
+            rows = conn.execute(
+                f"SELECT DISTINCT topic FROM sent_questions WHERE id IN ({placeholders})",
+                question_ids
+            ).fetchall()
+        topics_covered = [r['topic'] for r in rows if r['topic']]
+        update_candidate(
+            email=user['email'],
+            name=user['name'],
+            score=score,
+            total=len(db_qs),
+            topics_covered=topics_covered,
+            tab_switches=tab_switches,
+            time_taken=int(elapsed),
+        )
+    except Exception as e:
+        print(f"[-] Failed to update candidate memory: {e}")
         
     # Trigger background AI agents for feedback and suspicion analysis
     try:

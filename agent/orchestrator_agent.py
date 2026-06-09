@@ -125,6 +125,44 @@ def run_deterministic_dispatch(memory_data):
     print(f"[FALLBACK] Quiz dispatched. Emails sent: {sent_count}/{len(candidates)}")
     return {"mode": "fallback", "sent": sent_count, "candidates": len(candidates)}
 
+def _build_context_message(memory_data: dict) -> str:
+    """Pre-load candidates, histories, and topics into the user message to skip discovery turns."""
+    from agent.tools import _configured_topics
+
+    candidates = config.FRIENDS_LIST
+    topics = _configured_topics()
+
+    candidate_summaries = []
+    for c in candidates:
+        email = c["email"]
+        profile = memory_data.get(email, {})
+        weak = profile.get("overall_weak_topics", [])
+        avg = profile.get("avg_score", None)
+        summary = f"- {c['name']} ({email})"
+        if avg is not None:
+            summary += f": avg score {avg:.1f}"
+        if weak:
+            summary += f", weak topics: {', '.join(weak)}"
+        candidate_summaries.append(summary)
+
+    topic_lines = "\n".join(f"  - {name}: {url}" for name, url in topics.items())
+    configured_topics = ", ".join(config.QUIZ_TOPICS) if config.QUIZ_TOPICS else "adaptive (choose based on weaknesses)"
+
+    return (
+        f"It is time for the daily quiz.\n\n"
+        f"Candidates ({len(candidates)}):\n" + "\n".join(candidate_summaries) + "\n\n"
+        f"Available topics (use these exact URLs):\n{topic_lines}\n\n"
+        f"Configured topic filter: {configured_topics}\n\n"
+        f"Instructions:\n"
+        f"1. Call scrape_topics_batch with 2-3 topics from the list above. Use the exact URLs listed.\n"
+        f"2. Call select_questions with questions=[].\n"
+        f"3. Call setup_daily_quiz with the selected questions.\n"
+        f"4. Call send_all_quiz_emails with all candidate_links from step 3.\n"
+        f"Select exactly {config.QUIZ_QUESTION_COUNT} questions. Do not call get_candidate_history or "
+        f"list_available_topics — that data is already above."
+    )
+
+
 def run_daily_quiz_job(sent_log_backend=None, quiz_setup_backend=None):
     print("--- Starting Orchestrator Agent ---")
     with runtime_backends(
@@ -132,30 +170,25 @@ def run_daily_quiz_job(sent_log_backend=None, quiz_setup_backend=None):
         quiz_setup_backend=quiz_setup_backend
     ):
         memory_data = load_memory()
-        
+
         if not config.FRIENDS_LIST:
             print("No candidates found in config.FRIENDS_LIST.")
             return {"mode": "noop", "reason": "no_candidates"}
 
         print(f"Loaded memory for {len(memory_data)} candidates. Proceeding with ReAct loop...")
-        
-        configured_topics = ", ".join(config.QUIZ_TOPICS) if config.QUIZ_TOPICS else "adaptive topic selection"
-        user_task = (
-            "It is time for the daily quiz. "
-            f"Use {configured_topics}. "
-            f"Select exactly {config.QUIZ_QUESTION_COUNT} questions and send it to all candidates."
-        )
 
         if os.environ.get("USE_AI_ORCHESTRATOR", "true").lower() in {"0", "false", "no"}:
             return run_deterministic_dispatch(memory_data)
-        
+
+        user_task = _build_context_message(memory_data)
+
         try:
             final_answer = run_react_loop(
                 system_prompt=SYSTEM_PROMPT,
                 user_message=user_task,
                 tools=ORCHESTRATOR_TOOL_SCHEMAS,
                 tool_executor=tool_executor,
-                max_iterations=20,
+                max_iterations=10,
                 verbose=True
             )
 
