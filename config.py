@@ -42,7 +42,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_MODEL = "minimaxai/minimax-m2.7"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
-NVIDIA_TIMEOUT_SECONDS = float(os.environ.get("NVIDIA_TIMEOUT_SECONDS", 45))
+NVIDIA_TIMEOUT_SECONDS = float(os.environ.get("NVIDIA_TIMEOUT_SECONDS", 120))
 NVIDIA_MAX_RETRIES = int(os.environ.get("NVIDIA_MAX_RETRIES", 1))
 
 # Daily Quiz Submission Deadline (IST)
@@ -63,11 +63,7 @@ QUIZ_TOPICS = _csv_env("QUIZ_TOPICS")
 # Change this list to contain your target friends
 FRIENDS_LIST = [
     {
-        "name": "Alex Mercer",
-        "email": "alex.mercer.test.aptitude@example.com"
-    },
-    {
-        "name": "Dana Crawford",
-        "email": "dana.crawford.test.aptitude@example.com"
+        "name": "Rishabh Pawani",
+        "email": "rishabhpawani09@gmail.com"
     }
 ]

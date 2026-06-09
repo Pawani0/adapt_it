@@ -15,6 +15,7 @@ import uuid
 import sys
 import os
 import sqlite3
+import concurrent.futures
 
 # Allow imports from parent project directory
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -29,6 +30,10 @@ from agent import memory
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+
+# In-memory cache: stores the full scraped question pool so the LLM only
+# receives a slim summary, not the full question text on every iteration.
+_SCRAPED_QUESTION_CACHE: list = []
 
 # ─── Available IndiaBix Topics ───────────────────────────────────────────────
 
@@ -224,7 +229,6 @@ def tool_scrape_topic(args: dict) -> dict:
 
     print(f"[TOOL] Scraping topic: {topic_name} ({topic_url})")
     questions = scraper.scrape_indiabix_topic(topic_url, max_questions=max_q)
-    time.sleep(1)  # Polite delay
 
     # Tag each question with its topic name for memory tracking
     for q in questions:
@@ -244,6 +248,9 @@ def tool_select_questions(args: dict) -> dict:
     Updates sent_log.json by default, or the deployed server sent log when SENT_LOG_BACKEND=server.
     """
     questions = args.get("questions", [])
+    if not questions and _SCRAPED_QUESTION_CACHE:
+        print("[TOOL] select_questions: using cached scrape results.")
+        questions = _SCRAPED_QUESTION_CACHE
     count = args.get("count", getattr(config, "QUIZ_QUESTION_COUNT", 5))
 
     sent_log_source = "sent_log.json"
@@ -391,6 +398,74 @@ def tool_get_todays_submissions(_args: dict) -> dict:
         return {"error": str(e), "submissions": []}
 
 
+def tool_scrape_topics_batch(args: dict) -> dict:
+    """Scrape multiple IndiaBix topics in parallel and return the combined question pool."""
+    global _SCRAPED_QUESTION_CACHE
+    topics = args.get("topics", [])
+    max_q = args.get("max_questions_per_topic", max(10, getattr(config, "QUIZ_QUESTION_COUNT", 5)))
+
+    def _scrape_one(topic):
+        url = topic.get("topic_url", "")
+        name = topic.get("topic_name", "Unknown")
+        print(f"[TOOL] Scraping topic: {name} ({url})")
+        questions = scraper.scrape_indiabix_topic(url, max_questions=max_q)
+        for q in questions:
+            q["topic"] = name
+        return questions
+
+    all_questions = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(topics) or 1) as executor:
+        futures = {executor.submit(_scrape_one, t): t for t in topics}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                all_questions.extend(future.result())
+            except Exception as e:
+                topic_name = futures[future].get("topic_name", "?")
+                print(f"[-] Failed to scrape {topic_name}: {e}")
+
+    _SCRAPED_QUESTION_CACHE = all_questions
+
+    # Return only a slim summary to the LLM — full data lives in the cache
+    # and will be used automatically by select_questions.
+    by_topic = {}
+    for q in all_questions:
+        by_topic.setdefault(q.get("topic", "Unknown"), 0)
+        by_topic[q["topic"]] += 1
+
+    return {
+        "total_scraped": len(all_questions),
+        "topics_scraped": list(by_topic.keys()),
+        "questions_per_topic": by_topic,
+        "note": "Full question data cached. Call select_questions with questions=[] to use the cache."
+    }
+
+
+def tool_send_all_quiz_emails(args: dict) -> dict:
+    """Send quiz invitation emails to all candidates in parallel."""
+    candidate_links = args.get("candidate_links", [])
+
+    def _send_one(candidate):
+        success = emailer.send_quiz_email(
+            candidate.get("name", ""),
+            candidate.get("email", ""),
+            candidate.get("link", "")
+        )
+        return {"sent": success, "name": candidate.get("name"), "email": candidate.get("email")}
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(candidate_links) or 1)) as executor:
+        futures = [executor.submit(_send_one, c) for c in candidate_links]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                results.append(future.result())
+            except Exception as e:
+                results.append({"sent": False, "error": str(e)})
+
+    sent_count = sum(1 for r in results if r.get("sent"))
+    print(f"[+] Emails sent: {sent_count}/{len(candidate_links)}")
+    return {"sent_count": sent_count, "total": len(candidate_links), "results": results}
+
+
 def tool_send_feedback_email(args: dict) -> dict:
     """Sends a personalized feedback email to a candidate."""
     name  = args.get("name", "")
@@ -410,9 +485,11 @@ _TOOL_MAP = {
     "get_candidate_history":    tool_get_candidate_history,
     "get_all_candidates":       tool_get_all_candidates,
     "scrape_topic":             tool_scrape_topic,
+    "scrape_topics_batch":      tool_scrape_topics_batch,
     "select_questions":         tool_select_questions,
     "setup_daily_quiz":         tool_setup_daily_quiz,
     "send_quiz_email":          tool_send_quiz_email,
+    "send_all_quiz_emails":     tool_send_all_quiz_emails,
     "send_feedback_email":      tool_send_feedback_email,
     "update_candidate_memory":  tool_update_candidate_memory,
     "get_todays_submissions":   tool_get_todays_submissions,
@@ -475,9 +552,8 @@ ORCHESTRATOR_TOOL_SCHEMAS = [
         "function": {
             "name": "scrape_topic",
             "description": (
-                "Scrape MCQ questions from an IndiaBix topic URL. "
-                "You can scrape multiple topics and combine the pools. "
-                "Be selective — choose topics where candidates are weak."
+                "Scrape MCQ questions from a single IndiaBix topic URL. "
+                "Prefer scrape_topics_batch when scraping more than one topic."
             ),
             "parameters": {
                 "type": "object",
@@ -491,6 +567,39 @@ ORCHESTRATOR_TOOL_SCHEMAS = [
                     }
                 },
                 "required": ["topic_url", "topic_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scrape_topics_batch",
+            "description": (
+                "Scrape multiple IndiaBix topics in parallel in a single call. "
+                "Use this instead of calling scrape_topic multiple times — it is much faster."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topics": {
+                        "type": "array",
+                        "description": "List of topics to scrape in parallel",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "topic_url":  {"type": "string"},
+                                "topic_name": {"type": "string"}
+                            },
+                            "required": ["topic_url", "topic_name"]
+                        }
+                    },
+                    "max_questions_per_topic": {
+                        "type": "integer",
+                        "description": "Max questions to scrape per topic",
+                        "default": max(10, getattr(config, "QUIZ_QUESTION_COUNT", 5))
+                    }
+                },
+                "required": ["topics"]
             }
         }
     },
@@ -550,7 +659,10 @@ ORCHESTRATOR_TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "send_quiz_email",
-            "description": "Send the quiz invitation email to one candidate with their unique link.",
+            "description": (
+                "Send the quiz invitation email to one candidate. "
+                "Prefer send_all_quiz_emails when emailing more than one candidate."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -559,6 +671,35 @@ ORCHESTRATOR_TOOL_SCHEMAS = [
                     "link":  {"type": "string", "description": "The unique quiz URL for this candidate"}
                 },
                 "required": ["name", "email", "link"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_all_quiz_emails",
+            "description": (
+                "Send quiz invitation emails to all candidates in parallel in a single call. "
+                "Pass the candidate_links list returned by setup_daily_quiz directly."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "candidate_links": {
+                        "type": "array",
+                        "description": "The candidate_links list from setup_daily_quiz",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name":  {"type": "string"},
+                                "email": {"type": "string"},
+                                "link":  {"type": "string"}
+                            },
+                            "required": ["name", "email", "link"]
+                        }
+                    }
+                },
+                "required": ["candidate_links"]
             }
         }
     },
