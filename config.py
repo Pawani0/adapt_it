@@ -65,5 +65,9 @@ FRIENDS_LIST = [
     {
         "name": "Rishabh Pawani",
         "email": "rishabhpawani09@gmail.com"
+    },
+    {
+        "name": "Priyani Rathod",
+        "email": "Priyanirathod1695@gmail.com"
     }
 ]
