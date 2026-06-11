@@ -34,16 +34,18 @@ jobs:
               "$QUIZ_BASE_URL/api/run-daily-quiz/status")
             echo "$STATUS"
 
-            if echo "$STATUS" | grep -q '"last_state": "running"'; then
+            STATE=$(echo "$STATUS" | jq -r '.last_state // empty')
+
+            if [ "$STATE" = "running" ]; then
               sleep 10
               continue
             fi
 
-            if echo "$STATUS" | grep -q '"last_state": "succeeded"'; then
+            if [ "$STATE" = "succeeded" ]; then
               exit 0
             fi
 
-            if echo "$STATUS" | grep -q '"last_state": "failed"'; then
+            if [ "$STATE" = "failed" ]; then
               exit 1
             fi
 
