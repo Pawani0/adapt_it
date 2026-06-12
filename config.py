@@ -68,6 +68,6 @@ FRIENDS_LIST = [
     },
     {
         "name": "Priyani Rathod",
-        "email": "Priyanirathod1695@gmail.com"
+        "email": "priyanirathod1695@gmail.com"
     }
 ]
