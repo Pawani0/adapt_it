@@ -69,5 +69,33 @@ FRIENDS_LIST = [
     {
         "name": "Priyani Rathod",
         "email": "priyanirathod1695@gmail.com"
+    },
+    {
+        "name": "Deepika Vishwakarma",
+        "email": "vishwakarmadeepika2806@gmail.com"
+    },
+    {
+        "name": "Rishu Pandey",
+        "email": "prishu342@gmail.com"
+    },
+    {
+        "name": "Rishu Kumar",
+        "email": "rishutiwari0018@gmail.com"
+    },
+    {
+        "name": "Mohnish Singh",
+        "email": "mohnishsr255@gmail.com"
+    },
+    {
+        "name": "Priyanka Vishwakarma",
+        "email": "priyankavishwakarma03@gmail.com"
+    },
+    {
+        "name": "Vaibhav Sharma",
+        "email": "viabhav9039939889@gmail.com"
+    },
+    {
+        "name": "Rounak Jain",
+        "email": "rounakjain049@gmail.com"
     }
 ]
