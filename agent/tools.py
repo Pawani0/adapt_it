@@ -441,25 +441,22 @@ def tool_scrape_topics_batch(args: dict) -> dict:
 
 
 def tool_send_all_quiz_emails(args: dict) -> dict:
-    """Send quiz invitation emails to all candidates in parallel."""
+    """Send quiz invitation emails sequentially, capped at 2 emails/sec (Resend limit)."""
     candidate_links = args.get("candidate_links", [])
 
-    def _send_one(candidate):
-        success = emailer.send_quiz_email(
-            candidate.get("name", ""),
-            candidate.get("email", ""),
-            candidate.get("link", "")
-        )
-        return {"sent": success, "name": candidate.get("name"), "email": candidate.get("email")}
-
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(candidate_links) or 1)) as executor:
-        futures = [executor.submit(_send_one, c) for c in candidate_links]
-        for future in concurrent.futures.as_completed(futures):
-            try:
-                results.append(future.result())
-            except Exception as e:
-                results.append({"sent": False, "error": str(e)})
+    for i, candidate in enumerate(candidate_links):
+        if i > 0:
+            time.sleep(0.55)  # stay just under the 2/sec Resend rate limit
+        try:
+            success = emailer.send_quiz_email(
+                candidate.get("name", ""),
+                candidate.get("email", ""),
+                candidate.get("link", "")
+            )
+            results.append({"sent": success, "name": candidate.get("name"), "email": candidate.get("email")})
+        except Exception as e:
+            results.append({"sent": False, "name": candidate.get("name"), "error": str(e)})
 
     sent_count = sum(1 for r in results if r.get("sent"))
     print(f"[+] Emails sent: {sent_count}/{len(candidate_links)}")

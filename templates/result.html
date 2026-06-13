@@ -3,362 +3,406 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Results</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <title>Assessment Results</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --card-bg: rgba(17, 24, 39, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --primary-glow: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            --accent-color: #3b82f6;
-            --success-color: #10b981;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
+            --bg: #080808;
+            --surface: #0f0f0f;
+            --border: #1c1c1c;
+            --border-mid: #262626;
+            --text: #f0ece4;
+            --text-muted: #585450;
+            --text-dim: #2e2c2a;
+            --amber: #c8a455;
+            --amber-bg: rgba(200, 164, 85, 0.06);
+            --green: #5a9e78;
+            --green-bg: rgba(90, 158, 120, 0.07);
+            --red: #a05050;
+            --red-bg: rgba(160, 80, 80, 0.07);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 40px 20px;
-            background-image: 
-                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
-                radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.1) 0%, transparent 40%);
+            padding: 48px 24px 80px;
+            background-image: radial-gradient(circle, #141412 1px, transparent 1px);
+            background-size: 22px 22px;
         }
 
-        .container {
-            max-width: 650px;
+        .wrap {
+            max-width: 660px;
             margin: 0 auto;
-            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
 
-        .glass-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 30px;
-        }
-
-        .glass-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--primary-glow);
-        }
-
-        .success-checkmark {
-            font-size: 3.5rem;
-            color: var(--success-color);
-            margin-bottom: 20px;
-            animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 800;
-            margin-bottom: 10px;
-            background: var(--primary-glow);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .sub-message {
-            font-size: 1.05rem;
-            color: var(--text-secondary);
-            line-height: 1.5;
-            margin-bottom: 30px;
-        }
-
-        .deadline-banner {
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.15);
-            border-radius: 14px;
-            padding: 16px;
-            font-size: 0.95rem;
-            color: #60a5fa;
-            line-height: 1.4;
-            display: inline-block;
-        }
-
-        /* Score Display Mode */
-        .score-circle {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 3px solid rgba(59, 130, 246, 0.2);
-            margin: 0 auto 25px;
+        /* ─── Page Header ───────────────────────── */
+        .page-top {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
+            justify-content: space-between;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 32px;
+        }
+
+        .brand-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .candidate-label {
+            font-size: 12px;
+            font-weight: 300;
+            color: var(--text-muted);
+        }
+
+        .candidate-label strong {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* ─── Pending Card ──────────────────────── */
+        .pending-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .pending-accent { height: 2px; background: var(--amber); }
+
+        .pending-inner {
+            padding: 44px 44px 40px;
+        }
+
+        .pending-eyebrow {
+            font-family: 'DM Mono', monospace;
+            font-size: 9.5px;
+            letter-spacing: 0.18em;
+            color: var(--amber);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .pending-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            line-height: 1.1;
+            margin-bottom: 18px;
+        }
+
+        .pending-title em {
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        .pending-body {
+            font-size: 14px;
+            font-weight: 300;
+            color: var(--text-muted);
+            line-height: 1.7;
+            max-width: 460px;
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+        }
+
+        /* ─── Score Header Card ─────────────────── */
+        .score-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+        }
+
+        .score-card-accent { height: 2px; background: var(--amber); }
+
+        .score-card-inner {
+            padding: 36px 40px;
+        }
+
+        .score-eyebrow {
+            font-family: 'DM Mono', monospace;
+            font-size: 9.5px;
+            letter-spacing: 0.18em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+
+        .score-display {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            margin-bottom: 28px;
         }
 
         .score-num {
-            font-size: 3.2rem;
-            font-weight: 800;
-            color: var(--text-primary);
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 80px;
+            font-weight: 700;
             line-height: 1;
+            letter-spacing: -0.04em;
+            color: var(--text);
         }
 
-        .score-total {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-top: 4px;
+        .score-denom {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 26px;
+            font-weight: 400;
+            color: var(--text-muted);
+            padding-bottom: 10px;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 35px;
+        .stats-row {
+            display: flex;
+            gap: 0;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
         }
 
-        .stat-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 16px;
-            padding: 16px;
-            text-align: left;
+        .stat-cell {
+            flex: 1;
+            padding: 18px 0;
+            border-right: 1px solid var(--border);
         }
+
+        .stat-cell:last-child { border-right: none; }
 
         .stat-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.16em;
+            color: var(--text-dim);
             text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 5px;
+            margin-bottom: 7px;
         }
 
         .stat-val {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text);
         }
 
-        .stat-warning {
-            color: var(--warning-color);
-        }
+        .stat-val.warn { color: #b89050; }
+        .stat-val.danger { color: var(--red); }
 
-        .stat-danger {
-            color: var(--danger-color);
-        }
-
-        /* Question Review list */
-        .review-title {
-            text-align: left;
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 20px;
-            letter-spacing: -0.3px;
+        /* ─── Review Section ────────────────────── */
+        .section-title {
+            font-family: 'DM Mono', monospace;
+            font-size: 9.5px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            padding: 24px 0 14px;
         }
 
         .review-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 16px;
-            text-align: left;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+            overflow: hidden;
         }
 
-        .review-q-text {
-            font-size: 1rem;
-            font-weight: 600;
-            line-height: 1.4;
-            color: var(--text-primary);
-            margin-bottom: 15px;
-        }
-
-        .review-opt-list {
+        .review-head {
+            padding: 14px 22px;
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 15px;
+            align-items: center;
+            gap: 14px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .review-opt-item {
-            font-size: 0.9rem;
-            padding: 10px 14px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            color: var(--text-secondary);
+        .review-qnum {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            color: var(--amber);
         }
 
-        .review-opt-item.user-correct {
-            background: rgba(16, 185, 129, 0.08);
-            border-color: rgba(16, 185, 129, 0.2);
-            color: var(--success-color);
-            font-weight: 600;
-        }
-
-        .review-opt-item.user-incorrect {
-            background: rgba(239, 68, 68, 0.08);
-            border-color: rgba(239, 68, 68, 0.2);
-            color: var(--danger-color);
-            font-weight: 600;
-        }
-
-        .review-opt-item.correct-answer {
-            background: rgba(16, 185, 129, 0.05);
-            border-color: rgba(16, 185, 129, 0.15);
-            color: var(--success-color);
-            font-weight: 600;
-        }
-
-        .review-meta {
-            font-size: 0.85rem;
-            display: flex;
-            gap: 15px;
-            color: var(--text-secondary);
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            padding-top: 12px;
-        }
+        .review-rule { flex: 1; height: 1px; background: var(--border); }
 
         .review-badge {
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
+            padding: 3px 8px;
+            border: 1px solid;
         }
 
-        .badge-correct {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success-color);
+        .review-badge.correct {
+            color: var(--green);
+            border-color: rgba(90, 158, 120, 0.3);
+            background: var(--green-bg);
         }
 
-        .badge-incorrect {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--danger-color);
+        .review-badge.incorrect {
+            color: var(--red);
+            border-color: rgba(160, 80, 80, 0.3);
+            background: var(--red-bg);
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .review-qtext {
+            padding: 16px 22px 14px;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.6;
+            color: var(--text);
+            border-bottom: 1px solid var(--border);
         }
 
-        @keyframes pop {
-            0% { transform: scale(0.6); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+        .review-opts {
+            list-style: none;
+        }
+
+        .review-opt {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 11px 22px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            color: #5a5754;
+            border-left: 2px solid transparent;
+        }
+
+        .review-opt:last-child { border-bottom: none; }
+
+        .review-opt.is-correct-answer {
+            border-left-color: var(--green);
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .review-opt.is-user-wrong {
+            border-left-color: var(--red);
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        .review-opt-key {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            flex-shrink: 0;
+            padding-top: 2px;
+            min-width: 14px;
+        }
+
+        .review-opt-tag {
+            margin-left: auto;
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.1em;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        @keyframes up {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="wrap">
+        <div class="page-top">
+            <span class="brand-label">Aptitude Engine &nbsp;·&nbsp; Assessment Report</span>
+            <span class="candidate-label"><strong>{{ name }}</strong></span>
+        </div>
+
         {% if not deadline_passed %}
-        <!-- Mode A: Answers hidden before deadline -->
-        <div class="glass-card">
-            <div class="success-checkmark">✓</div>
-            <h1>SUBMISSION SUCCESSFUL</h1>
-            <p class="sub-message">Thank you, <strong>{{ name }}</strong>. Your assessment answers have been safely received and logged.</p>
-            
-            <div class="deadline-banner">
-                <strong>Detailed results are locked until the quiz window closes</strong><br>
-                Personalized feedback may be sent after submission, but the score, answer key, and full breakdown stay hidden here until the review window opens.
+        <!-- ── Mode A: Submission Confirmed ───────── -->
+        <div class="pending-card">
+            <div class="pending-accent"></div>
+            <div class="pending-inner">
+                <p class="pending-eyebrow">Submission Received</p>
+                <h1 class="pending-title">Answers<br><em>secured.</em></h1>
+                <p class="pending-body">
+                    Your responses have been logged and cannot be changed. Score, answer key, and detailed breakdown will be revealed once the daily quiz window closes.<br><br>
+                    Personalized feedback may be delivered to your email before the window opens.
+                </p>
             </div>
         </div>
+
         {% else %}
-        <!-- Mode B: Results revealed after deadline -->
-        <div class="glass-card">
-            <h1>ASSESSMENT REPORT</h1>
-            <p class="sub-message">Candidate: <strong>{{ name }}</strong></p>
-
-            <div class="score-circle">
-                <span class="score-num">{{ score }}</span>
-                <span class="score-total">Score (out of {{ total_questions }})</span>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Time Elapsed</div>
-                    <div class="stat-val">
-                        {% set mins = time_taken // 60 %}
-                        {% set secs = time_taken % 60 %}
-                        {{ mins }}:{{ '%02d' % secs }}
-                    </div>
+        <!-- ── Mode B: Full Results ───────────────── -->
+        <div class="score-card">
+            <div class="score-card-accent"></div>
+            <div class="score-card-inner">
+                <p class="score-eyebrow">Final Score</p>
+                <div class="score-display">
+                    <span class="score-num">{{ score }}</span>
+                    <span class="score-denom">/ {{ total_questions }}</span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Focus Losses</div>
-                    <div class="stat-val {% if tab_switches > 0 %}stat-warning{% endif %} {% if tab_switches >= 3 %}stat-danger{% endif %}">
-                        {{ tab_switches }} tab switches
+                <div class="stats-row">
+                    <div class="stat-cell" style="padding-left:0">
+                        <p class="stat-label">Time Taken</p>
+                        <p class="stat-val">
+                            {% set m = time_taken // 60 %}{% set s = time_taken % 60 %}{{ m }}:{{ '%02d' % s }}
+                        </p>
+                    </div>
+                    <div class="stat-cell" style="padding-left:24px">
+                        <p class="stat-label">Focus Losses</p>
+                        <p class="stat-val {% if tab_switches >= 3 %}danger{% elif tab_switches > 0 %}warn{% endif %}">
+                            {{ tab_switches }}
+                        </p>
+                    </div>
+                    <div class="stat-cell" style="padding-left:24px">
+                        <p class="stat-label">Accuracy</p>
+                        <p class="stat-val">{{ ((score / total_questions) * 100) | round | int }}%</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="review-title">Question Breakdown & Solutions</div>
+        <p class="section-title">Question Breakdown</p>
 
         {% for q in questions %}
         <div class="review-card">
-            <div class="review-q-text">{{ loop.index }}. {{ q.text }}</div>
-            <div class="review-opt-list">
+            <div class="review-head">
+                <span class="review-qnum">Q.{{ '%02d' | format(loop.index) }}</span>
+                <div class="review-rule"></div>
+                {% if q.user_answer == q.correct_answer %}
+                <span class="review-badge correct">Correct</span>
+                {% else %}
+                <span class="review-badge incorrect">Incorrect</span>
+                {% endif %}
+            </div>
+            <div class="review-qtext">{{ q.text }}</div>
+            <ul class="review-opts">
                 {% for option in q.options %}
                 {% set opt_letter = ['A','B','C','D','E'][loop.index0] %}
-                
-                {# Class binding logic #}
-                {% set item_class = "" %}
-                {% if opt_letter == q.correct_answer %}
-                    {% set item_class = "correct-answer" %}
+                {% set cls = '' %}
+                {% if opt_letter == q.correct_answer and opt_letter == q.user_answer %}
+                    {% set cls = 'is-correct-answer' %}
+                {% elif opt_letter == q.user_answer and opt_letter != q.correct_answer %}
+                    {% set cls = 'is-user-wrong' %}
+                {% elif opt_letter == q.correct_answer %}
+                    {% set cls = 'is-correct-answer' %}
                 {% endif %}
-                {% if opt_letter == q.user_answer %}
-                    {% if opt_letter == q.correct_answer %}
-                        {% set item_class = "user-correct" %}
-                    {% else %}
-                        {% set item_class = "user-incorrect" %}
+                <li class="review-opt {{ cls }}">
+                    <span class="review-opt-key">{{ opt_letter }}</span>
+                    <span>{{ option }}</span>
+                    {% if opt_letter == q.user_answer %}
+                    <span class="review-opt-tag">Your answer</span>
+                    {% elif opt_letter == q.correct_answer %}
+                    <span class="review-opt-tag">Correct</span>
                     {% endif %}
-                {% endif %}
-                
-                <div class="review-opt-item {{ item_class }}">
-                    <strong>{{ opt_letter }}.</strong> {{ option }}
-                    {% if opt_letter == q.user_answer %} <span>(Your Selection)</span>{% endif %}
-                    {% if opt_letter == q.correct_answer and opt_letter != q.user_answer %} <span>(Correct Answer)</span>{% endif %}
-                </div>
+                </li>
                 {% endfor %}
-            </div>
-            
-            <div class="review-meta">
-                {% if q.user_answer == q.correct_answer %}
-                <span class="review-badge badge-correct">Correct</span>
-                {% else %}
-                <span class="review-badge badge-incorrect">Incorrect</span>
-                {% endif %}
-                <span>Selected: {{ q.user_answer if q.user_answer else "None" }}</span>
-                <span>Correct: {{ q.correct_answer }}</span>
-            </div>
+            </ul>
         </div>
         {% endfor %}
+
         {% endif %}
     </div>
 </body>

@@ -3,541 +3,472 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aptitude Quiz - Play</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <title>Assessment — In Progress</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #080b11;
-            --card-bg: rgba(17, 24, 39, 0.7);
-            --border-color: rgba(255, 255, 255, 0.06);
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --primary-glow: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-            --accent-color: #3b82f6;
-            --danger-glow: linear-gradient(135deg, #ef4444 0%, #f43f5e 100%);
-            --success-color: #10b981;
+            --bg: #080808;
+            --surface: #0f0f0f;
+            --border: #1c1c1c;
+            --border-mid: #262626;
+            --text: #f0ece4;
+            --text-muted: #585450;
+            --text-dim: #2e2c2a;
+            --amber: #c8a455;
+            --amber-bg: rgba(200, 164, 85, 0.06);
+            --red: #a05050;
+            --red-bg: rgba(160, 80, 80, 0.06);
         }
 
-        * {
+        *, *::before, *::after {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             user-select: none;
             -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 40px 20px;
-            background-image: 
-                radial-gradient(circle at 5% 5%, rgba(59, 130, 246, 0.12) 0%, transparent 35%),
-                radial-gradient(circle at 95% 95%, rgba(139, 92, 246, 0.12) 0%, transparent 35%);
+            padding-top: 60px;
+            padding-bottom: 64px;
+            background-image: radial-gradient(circle, #141412 1px, transparent 1px);
+            background-size: 22px 22px;
         }
 
-        .quiz-container {
-            max-width: 750px;
-            margin: 0 auto;
-            position: relative;
-        }
-
-        /* Fixed Top Timer Bar */
+        /* ─── Fixed Header ──────────────────────── */
         .timer-header {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: rgba(8, 11, 17, 0.85);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-color);
-            padding: 12px 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            background: rgba(8, 8, 8, 0.96);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(8px);
         }
 
-        .timer-wrapper {
-            width: 100%;
-            max-width: 750px;
+        .timer-inner {
+            max-width: 740px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 52px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 20px;
         }
 
-        .timer-label {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            font-weight: 600;
-            letter-spacing: 0.5px;
+        .t-brand {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            color: var(--text-dim);
             text-transform: uppercase;
+            white-space: nowrap;
         }
 
-        .timer-display {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            font-variant-numeric: tabular-nums;
+        .t-candidate {
+            font-size: 12px;
+            font-weight: 300;
+            color: var(--text-muted);
+            white-space: nowrap;
         }
 
-        .progress-bar-container {
-            flex-grow: 1;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
+        .t-candidate strong {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        .t-bar-track {
+            flex: 1;
+            height: 1px;
+            background: var(--border-mid);
+            position: relative;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.03);
         }
 
-        .progress-bar-fill {
-            height: 100%;
-            width: 100%;
-            background: var(--primary-glow);
-            border-radius: 4px;
-            transition: width 1s linear;
+        .t-bar-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            background: var(--amber);
+            transition: width 1s linear, background 0.4s;
         }
 
-        .progress-warning {
-            background: var(--danger-glow);
-            animation: pulse-border 1.5s infinite alternate;
+        .t-bar-fill.warning { background: var(--red); }
+
+        .t-time {
+            font-family: 'DM Mono', monospace;
+            font-size: 18px;
+            font-weight: 500;
+            color: var(--text);
+            letter-spacing: 0.04em;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
-        /* Quiz Cards */
-        header {
-            margin-top: 30px;
-            margin-bottom: 40px;
-            text-align: center;
+        .t-time.warning {
+            color: var(--red);
+            animation: blink 1.2s step-end infinite;
         }
 
-        header h1 {
-            font-size: 1.8rem;
-            font-weight: 800;
-            background: var(--primary-glow);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        /* ─── Page Body ─────────────────────────── */
+        .wrap {
+            max-width: 740px;
+            margin: 0 auto;
+            padding: 36px 24px;
         }
 
-        header p {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            margin-top: 5px;
+        .page-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .question-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            transition: border-color 0.3s;
-            animation: cardFade 0.6s ease-out;
-        }
-
-        .question-card:hover {
-            border-color: rgba(255, 255, 255, 0.12);
-        }
-
-        .q-number {
-            font-size: 0.85rem;
-            color: var(--accent-color);
+        .page-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 24px;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 10px;
+            color: var(--text);
+            letter-spacing: -0.01em;
         }
 
-        .q-text {
-            font-size: 1.1rem;
-            font-weight: 600;
-            line-height: 1.5;
-            color: var(--text-primary);
-            margin-bottom: 20px;
+        .page-meta {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* ─── Question Card ─────────────────────── */
+        .q-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            margin-bottom: 14px;
+            animation: up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .q-card:nth-child(1) { animation-delay: 0.03s; }
+        .q-card:nth-child(2) { animation-delay: 0.07s; }
+        .q-card:nth-child(3) { animation-delay: 0.11s; }
+        .q-card:nth-child(4) { animation-delay: 0.15s; }
+        .q-card:nth-child(5) { animation-delay: 0.19s; }
+
+        .q-meta {
+            padding: 16px 22px 0;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .q-num {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            color: var(--amber);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .q-rule {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .q-of {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .q-body {
+            padding: 14px 22px 18px;
+            font-size: 15px;
+            font-weight: 400;
+            line-height: 1.65;
+            color: var(--text);
             white-space: pre-wrap;
         }
 
-        .options-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        /* ─── Options ───────────────────────────── */
+        .options {
+            border-top: 1px solid var(--border);
         }
 
-        /* Custom Radio Buttons */
-        .option-label {
+        .opt {
             display: flex;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 16px;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 13px 22px;
             cursor: pointer;
-            transition: all 0.25s ease;
-            position: relative;
+            border-left: 2px solid transparent;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s, border-left-color 0.15s;
         }
 
-        .option-label:hover {
-            background: rgba(255, 255, 255, 0.04);
-            border-color: rgba(255, 255, 255, 0.1);
-            transform: translateX(3px);
+        .opt:last-child { border-bottom: none; }
+
+        .opt:hover { background: rgba(255,255,255,0.015); }
+
+        .opt.selected {
+            background: var(--amber-bg);
+            border-left-color: var(--amber);
         }
 
-        .option-input {
+        .opt-input {
             position: absolute;
             opacity: 0;
-            width: 0;
-            height: 0;
+            pointer-events: none;
         }
 
-        .custom-radio {
-            height: 20px;
-            width: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            margin-right: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
+        .opt-key {
+            font-family: 'DM Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 500;
+            color: var(--text-dim);
             flex-shrink: 0;
+            padding-top: 2px;
+            min-width: 14px;
+            transition: color 0.15s;
         }
 
-        .custom-radio::after {
-            content: '';
-            width: 10px;
-            height: 10px;
-            background-color: transparent;
-            border-radius: 50%;
-            transition: all 0.2s;
+        .opt.selected .opt-key { color: var(--amber); }
+
+        .opt-text {
+            font-size: 13.5px;
+            color: #7a7672;
+            line-height: 1.55;
+            transition: color 0.15s;
         }
 
-        .option-input:checked + .custom-radio {
-            border-color: #3b82f6;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
-        }
+        .opt.selected .opt-text { color: var(--text); }
 
-        .option-input:checked + .custom-radio::after {
-            background-color: #3b82f6;
-        }
-
-        .option-input:checked ~ .option-text {
-            color: #3b82f6;
-            font-weight: 600;
-        }
-
-        .option-input:checked ~ .option-label-wrapper {
-            background: rgba(59, 130, 246, 0.06);
-            border-color: rgba(59, 130, 246, 0.2);
-        }
-
-        /* Active highlight for selected options */
-        .option-label.selected {
-            background: rgba(59, 130, 246, 0.06);
-            border-color: rgba(59, 130, 246, 0.25);
-        }
-
-        .option-letter {
-            font-weight: 700;
-            margin-right: 8px;
-            color: var(--accent-color);
-        }
-
-        .option-text {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            line-height: 1.4;
-            transition: color 0.2s;
-        }
-
-        .btn-submit-container {
-            margin-top: 40px;
-            margin-bottom: 80px;
+        /* ─── Submit ────────────────────────────── */
+        .submit-row {
+            margin-top: 28px;
         }
 
         .btn-submit {
             width: 100%;
-            padding: 18px;
-            background: var(--primary-glow);
+            padding: 15px;
+            background: var(--amber);
+            color: #080808;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
             border: none;
-            border-radius: 14px;
-            color: white;
-            font-family: 'Outfit', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
-            transition: all 0.3s;
+            transition: opacity 0.2s;
         }
 
-        .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(59, 130, 246, 0.5);
-            filter: brightness(1.1);
-        }
+        .btn-submit:hover { opacity: 0.85; }
 
-        /* Anti-Cheat Overlay styling */
+        /* ─── Cheat Overlay ─────────────────────── */
         .cheat-overlay {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(8, 11, 17, 0.95);
+            inset: 0;
+            background: rgba(8, 8, 8, 0.97);
             z-index: 9999;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 24px;
+        }
+
+        .cheat-box {
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid rgba(160, 80, 80, 0.3);
+            padding: 44px 40px;
             text-align: center;
+            animation: up 0.3s ease-out;
         }
 
-        .cheat-card {
-            background: rgba(31, 41, 55, 0.8);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-            padding: 40px;
-            border-radius: 24px;
-            max-width: 450px;
-            box-shadow: 0 20px 50px rgba(239, 68, 68, 0.15);
+        .cheat-line {
+            display: block;
+            width: 28px;
+            height: 2px;
+            background: var(--red);
+            margin: 0 auto 24px;
         }
 
-        .cheat-icon {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            animation: flash 1s infinite alternate;
+        .cheat-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 12px;
         }
 
-        .cheat-card h2 {
-            font-weight: 800;
-            color: #ef4444;
-            margin-bottom: 10px;
-        }
-
-        .cheat-card p {
-            color: var(--text-secondary);
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-            line-height: 1.5;
+        .cheat-desc {
+            font-size: 13px;
+            font-weight: 300;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 28px;
         }
 
         .cheat-btn {
-            background: var(--danger-glow);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 10px;
-            font-weight: 600;
+            padding: 10px 26px;
+            background: transparent;
+            border: 1px solid rgba(160, 80, 80, 0.4);
+            color: #b07070;
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+            transition: background 0.2s, border-color 0.2s;
         }
 
-        @keyframes pulse-border {
-            from {
-                box-shadow: 0 0 4px rgba(239, 68, 68, 0.2);
-            }
-            to {
-                box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
-            }
+        .cheat-btn:hover {
+            background: var(--red-bg);
+            border-color: rgba(160, 80, 80, 0.7);
         }
 
-        @keyframes cardFade {
-            from {
-                opacity: 0;
-                transform: translateY(15px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes up {
+            from { opacity: 0; transform: translateY(10px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
-        @keyframes flash {
-            from { opacity: 0.4; }
-            to { opacity: 1; }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.25; }
         }
     </style>
 </head>
 <body>
 
+    <!-- Fixed Timer Header -->
     <div class="timer-header">
-        <div class="timer-wrapper">
-            <span class="timer-label">⏰ Remaining Time</span>
-            <div class="progress-bar-container">
-                <div class="progress-bar-fill" id="timer-bar"></div>
+        <div class="timer-inner">
+            <span class="t-brand">Aptitude Engine</span>
+            <span class="t-candidate"><strong>{{ name }}</strong></span>
+            <div class="t-bar-track">
+                <div class="t-bar-fill" id="timer-bar"></div>
             </div>
-            <span class="timer-display" id="timer-text">15:00</span>
+            <span class="t-time" id="timer-text">15:00</span>
         </div>
     </div>
 
-    <div class="quiz-container">
-        <header>
-            <h1>DAILY APTITUDE CHALLENGE</h1>
-            <p>Candidate: <strong>{{ name }}</strong></p>
-        </header>
+    <div class="wrap">
+        <div class="page-head">
+            <span class="page-title">Daily Assessment</span>
+            <span class="page-meta">{{ total_questions }} Questions</span>
+        </div>
 
         <form id="quiz-form" action="{{ url_for('submit_quiz', token=token) }}" method="POST">
             <input type="hidden" name="tab_switches" id="tab-switches-input" value="0">
 
             {% for q in questions %}
-            <div class="question-card">
-                <div class="q-number">Question {{ loop.index }} of {{ total_questions }}</div>
-                <div class="q-text">{{ q.text }}</div>
-                <div class="options-list">
+            <div class="q-card">
+                <div class="q-meta">
+                    <span class="q-num">Q.{{ '%02d' | format(loop.index) }}</span>
+                    <div class="q-rule"></div>
+                    <span class="q-of">{{ loop.index }} / {{ total_questions }}</span>
+                </div>
+                <div class="q-body">{{ q.text }}</div>
+                <div class="options">
                     {% for option in q.options %}
                     {% set opt_letter = ['A','B','C','D','E'][loop.index0] %}
-                    <label class="option-label" onclick="selectOption(this)">
-                        <input type="radio" name="q_{{ q.id }}" value="{{ opt_letter }}" class="option-input">
-                        <span class="custom-radio"></span>
-                        <span class="option-text"><span class="option-letter">{{ opt_letter }}.</span> {{ option }}</span>
+                    <label class="opt" onclick="selectOption(this)">
+                        <input type="radio" name="q_{{ q.id }}" value="{{ opt_letter }}" class="opt-input">
+                        <span class="opt-key">{{ opt_letter }}</span>
+                        <span class="opt-text">{{ option }}</span>
                     </label>
                     {% endfor %}
                 </div>
             </div>
             {% endfor %}
 
-            <div class="btn-submit-container">
-                <button type="submit" class="btn-submit">Submit Assessment</button>
+            <div class="submit-row">
+                <button type="submit" class="btn-submit">Submit Assessment →</button>
             </div>
         </form>
     </div>
 
-    <!-- Custom Cheat Overlay -->
+    <!-- Cheat Overlay -->
     <div class="cheat-overlay" id="cheat-overlay">
-        <div class="cheat-card">
-            <div class="cheat-icon">⚠️</div>
-            <h2>Tab Switch Detected!</h2>
-            <p>You switched browser tabs or minimized the window. Switching tabs is strictly prohibited. This activity has been recorded and flagged in your final submission report.</p>
-            <button class="cheat-btn" onclick="dismissCheatWarning()">I Understand</button>
+        <div class="cheat-box">
+            <span class="cheat-line"></span>
+            <div class="cheat-title">Focus Loss Detected</div>
+            <p class="cheat-desc">You left the assessment window. This event has been recorded and will appear in your final submission report. Return and proceed carefully.</p>
+            <button class="cheat-btn" onclick="dismissCheatWarning()">Acknowledge &amp; Continue</button>
         </div>
     </div>
 
     <script>
-        // Set remaining time from server
         let totalSeconds = {{ remaining_seconds }};
-        const maxTime = {{ time_limit_seconds }}; // configured time limit
+        const maxTime = {{ time_limit_seconds }};
         const timerText = document.getElementById('timer-text');
-        const timerBar = document.getElementById('timer-bar');
-        const quizForm = document.getElementById('quiz-form');
-        const tabSwitchesInput = document.getElementById('tab-switches-input');
-        const cheatOverlay = document.getElementById('cheat-overlay');
+        const timerBar  = document.getElementById('timer-bar');
+        const quizForm  = document.getElementById('quiz-form');
+        const tabInput  = document.getElementById('tab-switches-input');
+        const overlay   = document.getElementById('cheat-overlay');
+        let tabCount = 0, focused = true;
 
-        let tabSwitchCount = 0;
-        let isFocused = true;
-
-        // Timer interval
-        const timerInterval = setInterval(() => {
+        const tick = setInterval(() => {
             if (totalSeconds <= 0) {
-                clearInterval(timerInterval);
-                timerText.textContent = "00:00";
-                timerBar.style.width = "0%";
-                alert("Time has expired! Your answers are being submitted automatically.");
+                clearInterval(tick);
+                timerText.textContent = '00:00';
+                timerBar.style.width = '0%';
                 quizForm.submit();
-            } else {
-                totalSeconds--;
-                updateTimerDisplay();
+                return;
             }
+            totalSeconds--;
+            render();
         }, 1000);
 
-        function updateTimerDisplay() {
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            
-            // Format time string
-            const minStr = String(minutes).padStart(2, '0');
-            const secStr = String(seconds).padStart(2, '0');
-            timerText.textContent = `${minStr}:${secStr}`;
-
-            // Calculate percentage
-            const percentage = (totalSeconds / maxTime) * 100;
-            timerBar.style.width = `${percentage}%`;
-
-            // Style bar if time is low (under 2 minutes)
+        function render() {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            timerText.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            timerBar.style.width = `${(totalSeconds / maxTime) * 100}%`;
             if (totalSeconds <= 120) {
-                timerBar.classList.add('progress-warning');
+                timerBar.classList.add('warning');
+                timerText.classList.add('warning');
             }
         }
 
-        // Initialize display
-        updateTimerDisplay();
+        render();
 
-        // Option visual highlight selection
-        function selectOption(element) {
-            // Remove 'selected' class from siblings
-            const parent = element.parentElement;
-            const siblings = parent.getElementsByClassName('option-label');
-            for (let sibling of siblings) {
-                sibling.classList.remove('selected');
-            }
-            // Add 'selected' class to clicked option
-            element.classList.add('selected');
+        function selectOption(el) {
+            el.parentElement.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+            el.classList.add('selected');
         }
 
-        /* STRICT ANTI-CHEAT BEHAVIORS */
+        function dismissCheatWarning() { overlay.style.display = 'none'; }
 
-        // 1. Disable Right-Click (Context Menu)
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-        });
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('copy',        e => e.preventDefault());
+        document.addEventListener('cut',         e => e.preventDefault());
+        document.addEventListener('paste',       e => e.preventDefault());
+        document.addEventListener('dragstart',   e => e.preventDefault());
 
-        // 2. Disable Copy/Cut/Paste keyboard and menu shortcuts
-        document.addEventListener('copy', function(e) {
-            e.preventDefault();
-        });
-        document.addEventListener('cut', function(e) {
-            e.preventDefault();
-        });
-        document.addEventListener('paste', function(e) {
-            e.preventDefault();
-        });
-
-        // 3. Disable Drag and Drop
-        document.addEventListener('dragstart', function(e) {
-            e.preventDefault();
-        });
-        document.addEventListener('drop', function(e) {
-            e.preventDefault();
-        });
-
-        // 4. Tab Blur / Focus Loss Detection
-        window.addEventListener('blur', function() {
-            if (isFocused) {
-                tabSwitchCount++;
-                tabSwitchesInput.value = tabSwitchCount;
-                isFocused = false;
-                
-                // Show custom overlay blocking the quiz until acknowledged
-                cheatOverlay.style.display = 'flex';
+        window.addEventListener('blur', () => {
+            if (focused) {
+                tabCount++;
+                tabInput.value = tabCount;
+                focused = false;
+                overlay.style.display = 'flex';
             }
         });
 
-        window.addEventListener('focus', function() {
-            isFocused = true;
+        window.addEventListener('focus', () => { focused = true; });
+
+        document.addEventListener('keydown', e => {
+            if (e.ctrlKey && ['c','v','x','u','s'].includes(e.key.toLowerCase())) e.preventDefault();
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) e.preventDefault();
+            if (e.key === 'PrintScreen') e.preventDefault();
         });
-
-        function dismissCheatWarning() {
-            cheatOverlay.style.display = 'none';
-        }
-
-        // Inhibit navigation hotkeys
-        document.addEventListener('keydown', function(e) {
-            // Block Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+U, Ctrl+S, F12
-            if (e.ctrlKey && ['c', 'v', 'x', 'u', 's'].includes(e.key.toLowerCase())) {
-                e.preventDefault();
-            }
-            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) {
-                e.preventDefault();
-            }
-            // Intercept PrintScreen key
-            if (e.key === 'PrintScreen') {
-                e.preventDefault();
-                alert("Screenshots are strictly prohibited!");
-            }
-        });
-
     </script>
 </body>
 </html>
