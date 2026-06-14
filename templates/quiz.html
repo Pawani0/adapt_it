@@ -12,8 +12,8 @@
             --border: #1c1c1c;
             --border-mid: #262626;
             --text: #f0ece4;
-            --text-muted: #585450;
-            --text-dim: #2e2c2a;
+            --text-muted: #6a6560;
+            --text-dim: #4a4845;
             --amber: #c8a455;
             --amber-bg: rgba(200, 164, 85, 0.06);
             --red: #a05050;
@@ -468,6 +468,12 @@
             if (e.ctrlKey && ['c','v','x','u','s'].includes(e.key.toLowerCase())) e.preventDefault();
             if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) e.preventDefault();
             if (e.key === 'PrintScreen') e.preventDefault();
+        });
+
+        // Block back navigation to start page once quiz has loaded
+        history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', function () {
+            history.pushState(null, '', window.location.href);
         });
     </script>
 </body>

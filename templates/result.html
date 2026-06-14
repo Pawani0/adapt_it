@@ -12,8 +12,8 @@
             --border: #1c1c1c;
             --border-mid: #262626;
             --text: #f0ece4;
-            --text-muted: #585450;
-            --text-dim: #2e2c2a;
+            --text-muted: #6a6560;
+            --text-dim: #4a4845;
             --amber: #c8a455;
             --amber-bg: rgba(200, 164, 85, 0.06);
             --green: #5a9e78;
@@ -277,7 +277,7 @@
 
         .review-opt:last-child { border-bottom: none; }
 
-        .review-opt.is-correct-answer {
+        .review-opt.is-user-correct {
             border-left-color: var(--green);
             background: var(--green-bg);
             color: var(--green);
@@ -313,6 +313,13 @@
     </style>
 </head>
 <body>
+    <script>
+        // Trap back navigation — prevent returning to quiz or start page
+        history.pushState(null, '', window.location.href);
+        window.addEventListener('popstate', function () {
+            history.pushState(null, '', window.location.href);
+        });
+    </script>
     <div class="wrap">
         <div class="page-top">
             <span class="brand-label">Aptitude Engine &nbsp;·&nbsp; Assessment Report</span>
@@ -327,8 +334,8 @@
                 <p class="pending-eyebrow">Submission Received</p>
                 <h1 class="pending-title">Answers<br><em>secured.</em></h1>
                 <p class="pending-body">
-                    Your responses have been logged and cannot be changed. Score, answer key, and detailed breakdown will be revealed once the daily quiz window closes.<br><br>
-                    Personalized feedback may be delivered to your email before the window opens.
+                    Your responses have been logged and cannot be changed. You will receive a <strong style="color:var(--text);font-weight:500;">personalized feedback email</strong> shortly — check your inbox.<br><br>
+                    Score and full breakdown will be revealed here once the daily quiz window closes.
                 </p>
             </div>
         </div>
@@ -381,21 +388,24 @@
             <ul class="review-opts">
                 {% for option in q.options %}
                 {% set opt_letter = ['A','B','C','D','E'][loop.index0] %}
-                {% set cls = '' %}
-                {% if opt_letter == q.correct_answer and opt_letter == q.user_answer %}
-                    {% set cls = 'is-correct-answer' %}
-                {% elif opt_letter == q.user_answer and opt_letter != q.correct_answer %}
-                    {% set cls = 'is-user-wrong' %}
-                {% elif opt_letter == q.correct_answer %}
-                    {% set cls = 'is-correct-answer' %}
+                {% if opt_letter == q.user_answer %}
+                    {% if opt_letter == q.correct_answer %}
+                        {% set cls = 'is-user-correct' %}
+                    {% else %}
+                        {% set cls = 'is-user-wrong' %}
+                    {% endif %}
+                {% else %}
+                    {% set cls = '' %}
                 {% endif %}
                 <li class="review-opt {{ cls }}">
                     <span class="review-opt-key">{{ opt_letter }}</span>
                     <span>{{ option }}</span>
                     {% if opt_letter == q.user_answer %}
-                    <span class="review-opt-tag">Your answer</span>
-                    {% elif opt_letter == q.correct_answer %}
-                    <span class="review-opt-tag">Correct</span>
+                        {% if opt_letter == q.correct_answer %}
+                        <span class="review-opt-tag">✓ Correct</span>
+                        {% else %}
+                        <span class="review-opt-tag">✗ Your answer</span>
+                        {% endif %}
                     {% endif %}
                 </li>
                 {% endfor %}
