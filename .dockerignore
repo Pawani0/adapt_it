@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+.venv
+__pycache__
+*.py[cod]
+
+.env
+credentials.json
+quiz.db
+mock_sheets_log.txt
+suspicion_report.txt
+indiabix_debug.html
+
+Dockerfile
+.dockerignore
