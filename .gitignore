@@ -1,4 +1,3 @@
-.env
 .venv/
 __pycache__/
 *.py[cod]
@@ -14,3 +13,5 @@ temp_interactive_push.bat
 .gitignore
 test_scripts/
 adaptit/
+config.bat
+node_modules
