@@ -11,12 +11,22 @@ Implements the ReAct (Reason + Act) agent loop:
 import json
 import sys
 import os
+import time
 
 # Allow imports from parent directory
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from openai import OpenAI
+import requests as _requests
+
+from openai import OpenAI, APITimeoutError, APIConnectionError, RateLimitError
 import config
+
+GROQ_AVAILABLE = False
+try:
+    from groq import Groq as _Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    pass
 
 
 def get_client() -> OpenAI:
@@ -34,30 +44,82 @@ def get_client() -> OpenAI:
     )
 
 
-def run_react_loop(
+def _groq_completion(messages: list, max_tokens: int) -> str:
+    """One-shot completion via the Groq SDK (non-streaming)."""
+    if not GROQ_AVAILABLE:
+        raise RuntimeError("groq package not installed")
+    if not config.GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY not set")
+    client = _Groq(api_key=config.GROQ_API_KEY)
+    response = client.chat.completions.create(
+        model=config.GROQ_MODEL,
+        messages=messages,
+        temperature=0.6,
+        max_completion_tokens=max_tokens,
+        top_p=0.95,
+        reasoning_effort="default",
+        stream=False,
+    )
+    content = response.choices[0].message.content or ""
+    # Strip <think>...</think> reasoning block emitted by reasoning models
+    import re
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    return content
+
+
+def _openrouter_completion(messages: list, max_tokens: int) -> str:
+    """One-shot completion via OpenRouter (direct requests, reasoning enabled)."""
+    if not config.OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY not set")
+    resp = _requests.post(
+        url=f"{config.OPENROUTER_BASE_URL}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": config.OPENROUTER_MODEL,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": 0.6,
+            "reasoning": {"enabled": True},
+        },
+        timeout=90,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    return data["choices"][0]["message"].get("content") or ""
+
+
+def _get_react_providers():
+    """Returns (name, OpenAI-compatible client, model) for each configured provider."""
+    providers = [("NIM", get_client(), config.NVIDIA_MODEL)]
+    if GROQ_AVAILABLE and config.GROQ_API_KEY:
+        providers.append((
+            "Groq",
+            OpenAI(base_url=config.GROQ_BASE_URL, api_key=config.GROQ_API_KEY, timeout=120, max_retries=0),
+            config.GROQ_MODEL,
+        ))
+    if config.OPENROUTER_API_KEY:
+        providers.append((
+            "OpenRouter",
+            OpenAI(base_url=config.OPENROUTER_BASE_URL, api_key=config.OPENROUTER_API_KEY, timeout=120, max_retries=0),
+            config.OPENROUTER_MODEL,
+        ))
+    return providers
+
+
+def _run_react_loop_with_client(
+    client: OpenAI,
+    model: str,
     system_prompt: str,
     user_message: str,
     tools: list,
     tool_executor: callable,
-    max_iterations: int = 15,
-    verbose: bool = True
+    max_iterations: int,
+    verbose: bool,
+    provider_name: str = "",
 ) -> str:
-    """
-    Run a full ReAct agent loop against NVIDIA NIM.
-
-    Args:
-        system_prompt:   The agent's persona and instructions.
-        user_message:    The task to accomplish.
-        tools:           List of OpenAI-format tool schemas.
-        tool_executor:   Callable(tool_name, tool_args) → result dict.
-        max_iterations:  Safety cap on the number of LLM turns.
-        verbose:         If True, prints the agent's reasoning steps.
-
-    Returns:
-        The agent's final text response when it stops calling tools.
-    """
-    client = get_client()
-
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user",   "content": user_message},
@@ -65,11 +127,11 @@ def run_react_loop(
 
     for iteration in range(max_iterations):
         if verbose:
-            print(f"\n[AGENT] Iteration {iteration + 1}/{max_iterations}")
+            label = f"[{provider_name}]" if provider_name else "[AGENT]"
+            print(f"\n{label} Iteration {iteration + 1}/{max_iterations}")
 
-        # Call NVIDIA NIM
         response = client.chat.completions.create(
-            model=config.NVIDIA_MODEL,
+            model=model,
             messages=messages,
             tools=tools if tools else None,
             tool_choice="auto" if tools else None,
@@ -79,7 +141,6 @@ def run_react_loop(
 
         msg = response.choices[0].message
 
-        # Append the assistant's response to message history
         messages.append({
             "role": "assistant",
             "content": msg.content or "",
@@ -87,22 +148,17 @@ def run_react_loop(
                 {
                     "id": tc.id,
                     "type": "function",
-                    "function": {
-                        "name": tc.function.name,
-                        "arguments": tc.function.arguments
-                    }
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments}
                 }
                 for tc in (msg.tool_calls or [])
             ] if msg.tool_calls else None
         })
 
-        # If no tool calls → agent is done
         if not msg.tool_calls:
             if verbose:
-                print(f"[AGENT] Task complete. Final response:\n{msg.content}")
+                print(f"[{provider_name or 'AGENT'}] Task complete.")
             return msg.content or ""
 
-        # Execute each tool call
         for tool_call in msg.tool_calls:
             tool_name = tool_call.function.name
             try:
@@ -113,7 +169,6 @@ def run_react_loop(
             if verbose:
                 print(f"[AGENT CALLS] {tool_name}({json.dumps(tool_args, indent=2)})")
 
-            # Run the actual tool function
             try:
                 result = tool_executor(tool_name, tool_args)
             except Exception as e:
@@ -123,37 +178,110 @@ def run_react_loop(
                 result_preview = str(result)[:300]
                 print(f"[TOOL RESULT] {result_preview}{'...' if len(str(result)) > 300 else ''}")
 
-            # Feed result back to the agent
             messages.append({
                 "role": "tool",
                 "tool_call_id": tool_call.id,
                 "content": json.dumps(result, default=str)
             })
 
-    # Safety: if we hit max iterations, return whatever the last content was
     last_content = next(
         (m.get("content", "") for m in reversed(messages) if m["role"] == "assistant"),
         "Agent reached maximum iterations without completing the task."
     )
-    print(f"[AGENT] Warning: Max iterations ({max_iterations}) reached.")
+    print(f"[{provider_name or 'AGENT'}] Warning: Max iterations ({max_iterations}) reached.")
     return last_content
 
 
-def simple_completion(prompt: str, system: str = "", max_tokens: int = 2048) -> str:
+def run_react_loop(
+    system_prompt: str,
+    user_message: str,
+    tools: list,
+    tool_executor: callable,
+    max_iterations: int = 15,
+    verbose: bool = True
+) -> str:
     """
-    Simple one-shot LLM completion (no tools, no loop).
-    Used by FeedbackAgent and SuspicionAgent for focused generation.
+    Run a full ReAct agent loop with automatic provider fallback.
+    Try order: NIM → Groq → OpenRouter. Raises if all providers fail.
     """
-    client = get_client()
+    last_error = None
+    for name, client, model in _get_react_providers():
+        try:
+            if verbose and name != "NIM":
+                print(f"[AGENT] Switching to fallback provider: {name} ({model})")
+            return _run_react_loop_with_client(
+                client=client,
+                model=model,
+                system_prompt=system_prompt,
+                user_message=user_message,
+                tools=tools,
+                tool_executor=tool_executor,
+                max_iterations=max_iterations,
+                verbose=verbose,
+                provider_name=name,
+            )
+        except (APITimeoutError, APIConnectionError, RateLimitError) as e:
+            print(f"[AGENT] {name} failed ({type(e).__name__}): {e}")
+            last_error = e
+        except Exception as e:
+            print(f"[AGENT] {name} failed: {e}")
+            last_error = e
+            break  # Non-transient error — don't try other providers
+
+    raise RuntimeError(f"All ReAct providers failed. Last error: {last_error}")
+
+
+def simple_completion(prompt: str, system: str = "", max_tokens: int = 2048, retries: int = 2) -> str:
+    """
+    One-shot LLM completion with automatic provider fallback.
+
+    Try order: NIM (primary) → Groq → OpenRouter.
+    NIM is retried up to `retries` times on timeout/connection errors before
+    falling through to the next provider. Raises if all providers fail.
+    """
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    response = client.chat.completions.create(
-        model=config.NVIDIA_MODEL,
-        messages=messages,
-        temperature=0.4,
-        max_tokens=max_tokens,
+    # --- Primary: NVIDIA NIM ---
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            client = get_client()
+            response = client.chat.completions.create(
+                model=config.NVIDIA_MODEL,
+                messages=messages,
+                temperature=0.4,
+                max_tokens=max_tokens,
+            )
+            return response.choices[0].message.content or ""
+        except (APITimeoutError, APIConnectionError, RateLimitError) as e:
+            last_error = e
+            if attempt < retries:
+                wait = 15 * (attempt + 1)
+                print(f"[NIM] Attempt {attempt + 1} failed ({type(e).__name__}), retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"[NIM] All {retries + 1} attempts failed. Trying fallback providers...")
+
+    # --- Fallback: Groq, then OpenRouter ---
+    fallbacks = [
+        ("Groq", _groq_completion, bool(GROQ_AVAILABLE and config.GROQ_API_KEY)),
+        ("OpenRouter", _openrouter_completion, bool(config.OPENROUTER_API_KEY)),
+    ]
+    for name, fn, enabled in fallbacks:
+        if not enabled:
+            continue
+        try:
+            print(f"[LLM] Trying {name} ({config.GROQ_MODEL if name == 'Groq' else config.OPENROUTER_MODEL})...")
+            result = fn(messages, max_tokens)
+            print(f"[LLM] {name} succeeded.")
+            return result
+        except Exception as e:
+            print(f"[LLM] {name} failed: {e}")
+            last_error = e
+
+    raise RuntimeError(
+        f"All LLM providers failed. Last error: {last_error}"
     )
-    return response.choices[0].message.content or ""

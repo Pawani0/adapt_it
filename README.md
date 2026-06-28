@@ -1,4 +1,13 @@
-# Daily Aptitude Quiz Agent 📝🤖
+﻿---
+title: Adaptit
+emoji: 📝
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
+# Daily Aptitude Quiz Agent ðŸ“ðŸ¤–
 
 An automated daily aptitude quiz platform that scrapes questions from IndiaBix, delivers personalized, timed, single-use test links to candidates via Resend, scores attempts, logs focus loss statistics, and logs the final graded results in real-time to Google Sheets.
 
@@ -20,23 +29,23 @@ An automated daily aptitude quiz platform that scrapes questions from IndiaBix, 
 ## File Structure
 
 ```text
-├── main.py                  Local entry point for running the orchestrator manually
-├── scraper.py               IndiaBix web scraper (4 or 5 options, md5 hashing)
-├── tracker.py               Tracks already-sent question IDs in sent_log.json
-├── emailer.py               Personalized HTML mail builder & Resend API dispatcher
-├── app.py                   Flask server (manages timer, database states, scoring API)
-├── sheets.py                Google Sheets logger (falls back to mock logging if offline)
-├── config.py                Shared config values (deadline times, friends list)
-├── sent_log.json            [Auto-created] Tracks sent question IDs
-├── quiz.db                  [Auto-created] Local SQLite database for operational state
-├── templates/
-│   ├── start.html           Welcome rules page (prevents accidental timer triggers)
-│   ├── quiz.html            Polished timed quiz page (incorporates anti-cheat & timer)
-│   ├── result.html          Thank you screen / Graded report page (post-deadline)
-│   └── error.html           Failed tokens, timeouts, and late submission warnings
-├── render.yaml              Optional Render web service config
-├── .github/workflows/daily.yml GitHub Actions daily scheduler
-└── DEPLOYMENT.md            Free deployment checklist
+â”œâ”€â”€ main.py                  Local entry point for running the orchestrator manually
+â”œâ”€â”€ scraper.py               IndiaBix web scraper (4 or 5 options, md5 hashing)
+â”œâ”€â”€ tracker.py               Tracks already-sent question IDs in sent_log.json
+â”œâ”€â”€ emailer.py               Personalized HTML mail builder & Resend API dispatcher
+â”œâ”€â”€ app.py                   Flask server (manages timer, database states, scoring API)
+â”œâ”€â”€ sheets.py                Google Sheets logger (falls back to mock logging if offline)
+â”œâ”€â”€ config.py                Shared config values (deadline times, friends list)
+â”œâ”€â”€ sent_log.json            [Auto-created] Tracks sent question IDs
+â”œâ”€â”€ quiz.db                  [Auto-created] Local SQLite database for operational state
+â”œâ”€â”€ templates/
+â”‚   â”œâ”€â”€ start.html           Welcome rules page (prevents accidental timer triggers)
+â”‚   â”œâ”€â”€ quiz.html            Polished timed quiz page (incorporates anti-cheat & timer)
+â”‚   â”œâ”€â”€ result.html          Thank you screen / Graded report page (post-deadline)
+â”‚   â””â”€â”€ error.html           Failed tokens, timeouts, and late submission warnings
+â”œâ”€â”€ render.yaml              Optional Render web service config
+â”œâ”€â”€ .github/workflows/daily.yml GitHub Actions daily scheduler
+â””â”€â”€ DEPLOYMENT.md            Free deployment checklist
 ```
 
 ---

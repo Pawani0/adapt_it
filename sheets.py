@@ -1,5 +1,6 @@
 import json
 import os
+import traceback
 from datetime import datetime
 import config
 
@@ -78,29 +79,38 @@ def log_submission(name, email, score, time_taken, tab_switches, answers):
             print(f"[-] Failed to write to mock log: {e}")
         return True
 
+    # Ensure all row values are plain JSON-serializable scalars
+    row_data = [str(v) if not isinstance(v, (int, float, bool, type(None))) else v for v in row_data]
+
     # Real sheets logger
     try:
-        scopes = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive'
-        ]
-        creds = _load_google_credentials(scopes)
-        client = gspread.authorize(creds)
-        
+        credentials_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if credentials_json:
+            info = json.loads(credentials_json)
+            if not isinstance(info, dict):
+                raise ValueError(
+                    f"GOOGLE_CREDENTIALS_JSON must contain a JSON object, got {type(info).__name__}. "
+                    "Set it to the full contents of your service account JSON file."
+                )
+            client = gspread.service_account_from_dict(info)
+        else:
+            client = gspread.service_account(filename=CREDENTIALS_FILE)
+
         sheet = client.open_by_key(config.GOOGLE_SHEET_ID).get_worksheet(0)
-        
+
         # Ensure the first row is always the expected header row.
         existing_values = sheet.get_all_values()
         if not existing_values:
-            sheet.append_row(headers)
+            sheet.append_row(headers, value_input_option='RAW')
         elif existing_values[0] != headers:
-            sheet.insert_row(headers, 1)
-            
-        sheet.append_row(row_data)
+            sheet.insert_row(headers, 1, value_input_option='RAW')
+
+        sheet.append_row(row_data, value_input_option='RAW')
         print(f"[+] Real-time result appended to Google Sheet for {name}.")
         return True
     except Exception as e:
         print(f"[-] Failed to append row to real Google Sheet: {e}")
+        traceback.print_exc()
         print("[*] Falling back to local log simulation...")
         # Write to mock log as secondary fallback
         with open("mock_sheets_log.txt", "a", encoding="utf-8") as f:

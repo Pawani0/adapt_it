@@ -392,8 +392,9 @@ def submit_quiz(token):
     # Append to Google Sheet
     try:
         import sheets
-        sheets.log_submission(user['name'], user['email'], score, int(elapsed), tab_switches, sheet_answers)
-        print(f"[+] Result row appended to Google Sheet for {user['name']}.")
+        ok = sheets.log_submission(user['name'], user['email'], score, int(elapsed), tab_switches, sheet_answers)
+        if ok:
+            print(f"[+] Result row appended to Google Sheet for {user['name']}.")
     except Exception as e:
         print(f"[-] Error writing submission to Google Sheets: {e}")
 
@@ -451,7 +452,8 @@ def submit_quiz(token):
         )
         
         feedback_thread.start()
-        suspicion_thread.start()
+        # Stagger by 5s so both threads don't hit the NIM API simultaneously
+        threading.Timer(5.0, suspicion_thread.start).start()
         print(f"[+] Spawned Feedback and Suspicion agents for {user['name']}.")
     except Exception as e:
         print(f"[-] Failed to start AI agent threads: {e}")

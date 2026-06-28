@@ -163,7 +163,7 @@ def update_candidate(
         avg_pct = sum(pcts) / len(pcts)
         if avg_pct < 50:
             weak.append(topic)
-        elif avg_pct >= 75:
+        elif avg_pct >= 60:
             strong.append(topic)
 
     profile["overall_weak_topics"]   = weak
@@ -188,7 +188,7 @@ def format_history_for_agent(email: str) -> str:
         f"Average score: {profile['avg_score']}",
         f"Average time taken: {profile['avg_time_taken']}s",
         f"Weak topics (score < 50%): {', '.join(profile['overall_weak_topics']) or 'None identified yet'}",
-        f"Strong topics (score ≥ 75%): {', '.join(profile['overall_strong_topics']) or 'None identified yet'}",
+        f"Strong topics (score >= 60%): {', '.join(profile['overall_strong_topics']) or 'None identified yet'}",
         "",
         "Last 3 quiz results:",
     ]

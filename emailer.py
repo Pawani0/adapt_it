@@ -206,12 +206,44 @@ def send_quiz_email(recipient_name, recipient_email, quiz_link):
     return success
 
 
+def _format_feedback_html(body: str) -> str:
+    """Convert plain-text feedback body to styled HTML blocks."""
+    import re
+    blocks = re.split(r'\n\s*---+\s*\n', body.strip())
+    out = []
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split('\n')
+        inner = ""
+        for line in lines:
+            line = line.strip()
+            if not line:
+                inner += '<br>'
+            elif re.match(r'^Q\d+\.', line) or re.match(r'^\*\*Q\d+', line):
+                # Question title
+                inner += f'<p style="margin:0 0 6px 0;font-size:13px;font-weight:700;color:#e0e0e0;">{line}</p>'
+            elif line.lower().startswith(('your answer', 'correct answer', 'their answer')):
+                inner += f'<p style="margin:0 0 4px 0;font-size:12px;color:#888;">{line}</p>'
+            elif line.lower().startswith(('explanation', 'step')):
+                inner += f'<p style="margin:6px 0 4px 0;font-size:12px;font-weight:600;color:#7edea8;text-transform:uppercase;letter-spacing:0.06em;">{line}</p>'
+            else:
+                inner += f'<p style="margin:0 0 4px 0;font-size:13px;color:#aaa;line-height:1.7;">{line}</p>'
+        out.append(f'<div style="padding:18px 20px;border-bottom:1px solid #2a2a2a;">{inner}</div>')
+
+    if not out:
+        # fallback: plain render
+        return f'<div style="padding:20px;font-size:13px;color:#aaa;line-height:1.8;">{body.replace(chr(10), "<br>")}</div>'
+    return "".join(out)
+
+
 def send_feedback_email(recipient_name, recipient_email, feedback_body):
     """
     Sends a personalized feedback email to a candidate after a quiz.
     """
     subject = f"Your Quiz Feedback — {recipient_name}"
-    formatted_body = feedback_body.replace(chr(10), "<br>")
+    formatted_body = _format_feedback_html(feedback_body)
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
@@ -224,11 +256,11 @@ def send_feedback_email(recipient_name, recipient_email, feedback_body):
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0f0f;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;">
+        <table width="680" cellpadding="0" cellspacing="0" border="0" style="max-width:680px;width:100%;">
 
           <!-- Brand bar -->
           <tr>
-            <td style="padding-bottom:32px;">
+            <td style="padding-bottom:28px;">
               <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td>
@@ -253,32 +285,38 @@ def send_feedback_email(recipient_name, recipient_email, feedback_body):
 
               <!-- Header -->
               <tr>
-                <td style="padding:40px 40px 0 40px;">
+                <td style="padding:36px 40px 0 40px;">
                   <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.14em;color:#7edea8;text-transform:uppercase;">Assessment Complete</p>
-                  <h1 style="margin:0;font-size:28px;font-weight:700;color:#f5f5f5;line-height:1.2;letter-spacing:-0.02em;">Here's how you<br>did, {recipient_name}.</h1>
+                  <h1 style="margin:0;font-size:26px;font-weight:700;color:#f5f5f5;line-height:1.2;letter-spacing:-0.02em;">Here's how you did, {recipient_name}.</h1>
                 </td>
               </tr>
 
               <!-- Divider -->
               <tr>
-                <td style="padding:28px 40px;">
+                <td style="padding:24px 40px;">
                   <div style="height:1px;background-color:#2a2a2a;"></div>
                 </td>
               </tr>
 
-              <!-- Feedback body -->
+              <!-- Feedback label -->
+              <tr>
+                <td style="padding:0 40px 12px 40px;">
+                  <p style="margin:0;font-size:10px;font-weight:600;letter-spacing:0.12em;color:#555;text-transform:uppercase;">Personalized Feedback</p>
+                </td>
+              </tr>
+
+              <!-- Feedback body — question blocks -->
               <tr>
                 <td style="padding:0 40px 32px 40px;">
-                  <p style="margin:0 0 16px 0;font-size:10px;font-weight:600;letter-spacing:0.12em;color:#555;text-transform:uppercase;">Personalized Feedback</p>
-                  <div style="background-color:#111;border:1px solid #2a2a2a;border-left:3px solid #7edea8;border-radius:0 8px 8px 0;padding:24px;">
-                    <p style="margin:0;font-size:14px;color:#aaa;line-height:1.8;">{formatted_body}</p>
+                  <div style="background-color:#111;border:1px solid #2a2a2a;border-radius:8px;overflow:hidden;">
+                    {formatted_body}
                   </div>
                 </td>
               </tr>
 
               <!-- Closing note -->
               <tr>
-                <td style="padding:0 40px 40px 40px;">
+                <td style="padding:0 40px 36px 40px;">
                   <p style="margin:0;font-size:13px;color:#555;line-height:1.6;">
                     Keep showing up. Consistency compounds.<br>
                     <span style="color:#333;">— Aptitude Engine</span>
@@ -291,7 +329,7 @@ def send_feedback_email(recipient_name, recipient_email, feedback_body):
 
           <!-- Footer -->
           <tr>
-            <td style="padding:28px 0 0 0;">
+            <td style="padding:24px 0 0 0;">
               <p style="margin:0;font-size:11px;color:#333;line-height:1.6;">
                 Automated feedback report &bull; Do not reply to this email
               </p>

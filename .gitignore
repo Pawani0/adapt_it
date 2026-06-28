@@ -3,6 +3,7 @@
 __pycache__/
 *.py[cod]
 credentials.json
+hf_secret_value.txt
 quiz.db
 mock_sheets_log.txt
 suspicion_report.txt
@@ -11,3 +12,5 @@ branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
 .gitignore
+test_scripts/
+adaptit/

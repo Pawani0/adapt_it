@@ -12,7 +12,21 @@ def _load_dotenv(path=".env"):
                 continue
 
             key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+            value = value.strip()
+            if value.startswith('"') and value.endswith('"'):
+                # Decode standard escape sequences inside double-quoted values
+                inner = value[1:-1]
+                inner = (inner
+                         .replace('\\\\', '\x00BACKSLASH\x00')
+                         .replace('\\"', '"')
+                         .replace('\\n', '\n')
+                         .replace('\\r', '\r')
+                         .replace('\\t', '\t')
+                         .replace('\x00BACKSLASH\x00', '\\'))
+                value = inner
+            elif value.startswith("'") and value.endswith("'"):
+                value = value[1:-1]
+            os.environ.setdefault(key.strip(), value)
 
 
 def _csv_env(name, default=""):
@@ -44,6 +58,15 @@ NVIDIA_MODEL = "minimaxai/minimax-m2.7"
 NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 NVIDIA_TIMEOUT_SECONDS = float(os.environ.get("NVIDIA_TIMEOUT_SECONDS", 120))
 NVIDIA_MAX_RETRIES = int(os.environ.get("NVIDIA_MAX_RETRIES", 1))
+
+# Groq Fallback Config
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3-32b")
+
+# OpenRouter Fallback Config
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Daily Quiz Submission Deadline (IST)
 QUIZ_DEADLINE_HOUR = int(os.environ.get("QUIZ_DEADLINE_HOUR", 21))      # 9 PM IST
